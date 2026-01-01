@@ -17,13 +17,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $message = "Username is required.";
     } else {
         try {
-            $temp_password = bin2hex(random_bytes(4)); // 8-char temp password
-        } catch (Exception $e) {
-            $temp_password = "Welcome123";
+            $temp_password = bin2hex(random_bytes(8)); // 16 chars
+        } catch (Throwable $e) {
+            http_response_code(500);
+            exit("Password generation failed. Please retry.");
         }
+
         $hash = password_hash($temp_password, PASSWORD_DEFAULT);
 
-        $stmt = $conn->prepare("INSERT INTO users (username, password_hash, role, coach_id, student_id, status, must_change_password) VALUES (?, ?, ?, ?, ?, ?, 1)");
+        $stmt = $conn->prepare("
+            INSERT INTO users
+              (username, password_hash, role, coach_id, student_id, status, must_change_password)
+            VALUES (?, ?, ?, ?, ?, ?, 1)
+        ");
         $stmt->bind_param(
             "sssiss",
             $username,
@@ -35,14 +41,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         );
 
         if ($stmt->execute()) {
-            $message = "User created successfully. Temporary password: " . $temp_password;
+            $message = "User created successfully. Temporary password: " . htmlspecialchars($temp_password);
         } else {
             $message = "Error: " . $conn->error;
         }
     }
 }
 
-// Fetch coaches and students for linking
+// Fetch coaches and students
 $coaches = $conn->query("SELECT id, coach_code, name FROM coaches ORDER BY name ASC");
 $students = $conn->query("SELECT id, admission_no, first_name, last_name FROM students ORDER BY first_name ASC");
 ?>
@@ -53,12 +59,12 @@ $students = $conn->query("SELECT id, admission_no, first_name, last_name FROM st
 
 <div class="form-card">
     <?php if ($message): ?>
-        <p style="margin-bottom:10px;"><?php echo htmlspecialchars($message); ?></p>
+        <p style="margin-bottom:10px;"><?php echo $message; ?></p>
     <?php endif; ?>
 
     <form method="POST">
         <div class="form-row">
-            <label>Username (use email for coach/student)</label>
+            <label>Username</label>
             <input type="text" name="username" required>
         </div>
 
@@ -72,7 +78,7 @@ $students = $conn->query("SELECT id, admission_no, first_name, last_name FROM st
         </div>
 
         <div class="form-row">
-            <label>Link to Coach (for coach role)</label>
+            <label>Link to Coach</label>
             <select name="coach_id">
                 <option value="">-- None --</option>
                 <?php while ($c = $coaches->fetch_assoc()): ?>
@@ -84,7 +90,7 @@ $students = $conn->query("SELECT id, admission_no, first_name, last_name FROM st
         </div>
 
         <div class="form-row">
-            <label>Link to Student (for student role)</label>
+            <label>Link to Student</label>
             <select name="student_id">
                 <option value="">-- None --</option>
                 <?php while ($s = $students->fetch_assoc()): ?>
@@ -110,7 +116,7 @@ $students = $conn->query("SELECT id, admission_no, first_name, last_name FROM st
     </form>
 
     <p style="margin-top:10px; font-size:12px;">
-        Note: A temporary password will be generated automatically. User will be forced to set a new password at first login.
+        User will be forced to change password at first login.
     </p>
 </div>
 
