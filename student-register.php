@@ -127,7 +127,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             // Create user login (role=student)
             $username = $email;
-            $tempPasswordPlain = bin2hex(random_bytes(4)); // 8 hex chars
+           try {
+    $tempPasswordPlain = bin2hex(random_bytes(8)); // 16 hex chars
+} catch (Throwable $e) {
+    http_response_code(500);
+    exit("Password generation failed. Please retry.");
+}
+
             $passwordHash = password_hash($tempPasswordPlain, PASSWORD_BCRYPT);
 
             $userStmt = $conn->prepare("
