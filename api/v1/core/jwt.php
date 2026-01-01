@@ -8,8 +8,18 @@ final class JWT
   private const ALG = 'HS256';
   private const TTL = 86400; // 24 hours
 
-  // CHANGE THIS IN PROD
-  private const SECRET = 'ACA_SUPER_SECRET_CHANGE_ME';
+  private static function secret(): string
+  {
+    $s = Env::get('ACA_JWT_SECRET');
+    if (!$s || strlen($s) < 32) {
+      Response::error(
+        'JWT secret not configured',
+        500,
+        'JWT_SECRET_MISSING'
+      );
+    }
+    return $s;
+  }
 
   public static function encode(array $payload): string
   {
@@ -22,7 +32,7 @@ final class JWT
     $segments[] = self::base64UrlEncode(json_encode($payload));
 
     $signingInput = implode('.', $segments);
-    $signature = hash_hmac('sha256', $signingInput, self::SECRET, true);
+    $signature = hash_hmac('sha256', $signingInput, self::secret(), true);
     $segments[] = self::base64UrlEncode($signature);
 
     return implode('.', $segments);
@@ -38,7 +48,7 @@ final class JWT
     $validSig = hash_hmac(
       'sha256',
       "$h.$p",
-      self::SECRET,
+      self::secret(),
       true
     );
 

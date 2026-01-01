@@ -8,8 +8,8 @@ config.php
 /node_modules/
 .DS_Store
 Thumbs.db
-git add .
-git commit -m "ACA System: API v1 with JWT and core modules"
+api/v1/.env
+
 
 
 

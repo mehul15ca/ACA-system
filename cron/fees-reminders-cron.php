@@ -1,4 +1,5 @@
 <?php
+require __DIR__ . '/../includes/cron_guard.php';
 // Fees reminders cron – with parent_email CC support
 include "../config.php";
 

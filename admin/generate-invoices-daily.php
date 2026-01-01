@@ -1,4 +1,5 @@
 <?php
+require __DIR__ . '/../includes/cron_guard.php';
 // This script should be called daily (via cron or manually) to generate
 // monthly invoices based on each student's join_date (billing day).
 // Logic:

@@ -1,4 +1,5 @@
 <?php
+require __DIR__ . '/../includes/cron_guard.php';
 // Daily fees reminders processor
 // Run via: http://localhost/ACA-System/cron/fees-reminders-daily.php (or your domain)
 

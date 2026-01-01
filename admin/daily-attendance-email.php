@@ -1,4 +1,5 @@
 <?php
+require __DIR__ . '/../includes/cron_guard.php';
 // Daily email of PRESENT students grouped by batch.
 // Run this via cron or hit manually in browser.
 include "../config.php";
