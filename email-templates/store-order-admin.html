@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>New Merchandise Order – {{order_no}}</title>
+  <style>/* same style */</style>
+</head>
+<body>
+  <div class="wrapper">
+    <div class="card">
+      <div class="header">
+        <div class="title">New Merchandise Order</div>
+      </div>
+
+      <p>A new merchandise order has been placed.</p>
+
+      <table class="info-table">
+        <tr><th>Order No.</th><td>{{order_no}}</td></tr>
+        <tr><th>Order Date</th><td>{{order_date}}</td></tr>
+        <tr><th>Student Name</th><td>{{student_name}}</td></tr>
+        <tr><th>Contact</th><td>{{contact_phone}} / {{contact_email}}</td></tr>
+        <tr><th>Amount Paid</th><td><strong>{{currency}} {{amount_paid}}</strong></td></tr>
+        <tr><th>Shipping Method</th><td>{{shipping_method}}</td></tr>
+      </table>
+
+      <p style="margin-top:12px;"><strong>Order Summary:</strong></p>
+      <p>{{order_items_html}}</p>
+
+      <p class="muted">
+        This email was sent automatically by the ACA system.
+      </p>
+    </div>
+    <div class="footer">
+      © {{current_year}} Australasia Cricket Academy. Internal notification.
+    </div>
+  </div>
+</body>
+</html>

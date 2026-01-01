@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>{{announcement_title}}</title>
+  <style>/* same style */</style>
+</head>
+<body>
+  <div class="wrapper">
+    <div class="card">
+      <div class="header">
+        <img src="{{academy_logo_url}}" class="logo">
+        <div class="title">{{announcement_title}}</div>
+      </div>
+
+      <p>Hi {{recipient_name}},</p>
+
+      <p>{{announcement_body_html}}</p>
+
+      <p class="muted">
+        This announcement is intended for: {{audience_label}}.
+      </p>
+
+      <p>Warm regards,<br>Australasia Cricket Academy</p>
+    </div>
+
+    <div class="footer">
+      © {{current_year}} Australasia Cricket Academy.
+    </div>
+  </div>
+</body>
+</html>

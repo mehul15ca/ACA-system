@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Payment Receipt – {{invoice_no}}</title>
+  <style>/* same style block as above */</style>
+</head>
+<body>
+  <div class="wrapper">
+    <div class="card">
+      <div class="header">
+        <img src="{{academy_logo_url}}" alt="Australasia Cricket Academy" class="logo">
+        <div class="title">Payment Receipt</div>
+      </div>
+
+      <p>Hi {{student_name}},</p>
+
+      <p>
+        We have received your payment. Below are the details of your invoice and receipt.
+      </p>
+
+      <table class="info-table">
+        <tr><th>Student Name</th><td>{{student_name}}</td></tr>
+        <tr><th>Student ID</th><td>{{student_id}}</td></tr>
+        <tr><th>Invoice No.</th><td>{{invoice_no}}</td></tr>
+        <tr><th>Payment Date</th><td>{{payment_date}}</td></tr>
+        <tr><th>Period</th><td>{{period_from}} – {{period_to}}</td></tr>
+        <tr><th>Amount Paid</th><td><strong>{{currency}} {{amount_paid}}</strong></td></tr>
+        <tr><th>Payment Method</th><td>{{payment_method}}</td></tr>
+      </table>
+
+      <p style="margin-top:16px;">
+        You can view your fees and receipts anytime in your student portal.
+      </p>
+
+      <p>Thank you for your timely payment.</p>
+
+      <p>Warm regards,<br>Australasia Cricket Academy</p>
+    </div>
+
+    <div class="footer">
+      © {{current_year}} Australasia Cricket Academy. All rights reserved.
+    </div>
+  </div>
+</body>
+</html>

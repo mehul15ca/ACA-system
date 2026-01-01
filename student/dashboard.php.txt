@@ -1,0 +1,19 @@
+<?php
+include "../config.php";
+checkLogin();
+$role = currentUserRole();
+if ($role !== 'student') {
+    http_response_code(403);
+    echo "Access denied.";
+    exit;
+}
+?>
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><title>Student Dashboard</title></head>
+<body>
+<h1>Student Dashboard (placeholder)</h1>
+<p>Welcome! Student portal UI will be built here later.</p>
+<p><a href="../logout.php">Logout</a></p>
+</body>
+</html>

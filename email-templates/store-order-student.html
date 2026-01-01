@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Order Confirmation – {{order_no}}</title>
+  <style>/* same style block */</style>
+</head>
+<body>
+  <div class="wrapper">
+    <div class="card">
+      <div class="header">
+        <img src="{{academy_logo_url}}" alt="Australasia Cricket Academy" class="logo">
+        <div class="title">Order Confirmation</div>
+      </div>
+
+      <p>Hi {{student_name}},</p>
+
+      <p>Thank you for your order from the Australasia Cricket Academy merchandise store.</p>
+
+      <table class="info-table">
+        <tr><th>Order No.</th><td>{{order_no}}</td></tr>
+        <tr><th>Order Date</th><td>{{order_date}}</td></tr>
+        <tr><th>Amount Paid</th><td><strong>{{currency}} {{amount_paid}}</strong></td></tr>
+      </table>
+
+      <p style="margin-top:12px;"><strong>Order Summary:</strong></p>
+      <p>{{order_items_html}}</p>
+
+      <p style="margin-top:16px;">
+        <strong>Shipping / Pickup:</strong><br>
+        {{shipping_method}}<br>
+        {{shipping_address_block}}
+      </p>
+
+      <p style="margin-top:16px;">
+        Tracking details will be shared as soon as the order is dispatched.
+      </p>
+
+      <p>Thank you for supporting the academy.</p>
+
+      <p>Warm regards,<br>Australasia Cricket Academy</p>
+    </div>
+
+    <div class="footer">
+      © {{current_year}} Australasia Cricket Academy. All rights reserved.
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Fee Reminder – Invoice {{invoice_no}}</title>
+  <style>/* same style block */</style>
+</head>
+<body>
+  <div class="wrapper">
+    <div class="card">
+      <div class="header">
+        <img src="{{academy_logo_url}}" alt="Australasia Cricket Academy" class="logo">
+        <div class="title">Fee Reminder</div>
+      </div>
+
+      <p>Hi {{student_name}},</p>
+
+      <p>
+        This is a reminder regarding your pending fee for the academy.
+      </p>
+
+      <table class="info-table">
+        <tr><th>Invoice No.</th><td>{{invoice_no}}</td></tr>
+        <tr><th>Due Date</th><td>{{due_date}}</td></tr>
+        <tr><th>Outstanding Amount</th><td><strong>{{currency}} {{amount_due}}</strong></td></tr>
+        <tr><th>Status</th><td>{{invoice_status}}</td></tr>
+      </table>
+
+      <p style="margin-top:16px;">
+        Please complete the payment by the due date to avoid any interruption in training sessions.
+      </p>
+
+      <p class="muted">
+        You can view your fees and payment history in your student portal.
+      </p>
+
+      <p>Warm regards,<br>Australasia Cricket Academy</p>
+    </div>
+
+    <div class="footer">
+      © {{current_year}} Australasia Cricket Academy. All rights reserved.
+    </div>
+  </div>
+</body>
+</html>

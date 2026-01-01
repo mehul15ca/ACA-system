@@ -1,0 +1,244 @@
+/* portal-dashboard.css – shared for student/coach dashboards */
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  background: radial-gradient(circle at top, #004BA0 0%, #001D3D 45%, #000814 100%);
+  color: #E5E7EB;
+}
+
+/* Layout */
+
+.portal-layout {
+  min-height: 100vh;
+  display: flex;
+}
+
+/* Sidebar */
+
+.portal-sidebar {
+  width: 240px;
+  max-width: 240px;
+  background: rgba(3, 7, 18, 0.96);
+  border-right: 1px solid rgba(15, 23, 42, 0.9);
+  display: flex;
+  flex-direction: column;
+  padding: 14px 14px 12px;
+}
+
+.portal-logo {
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #F9FAFB;
+  margin-bottom: 4px;
+}
+
+.portal-role {
+  font-size: 12px;
+  color: #9CA3AF;
+  margin-bottom: 12px;
+}
+
+.portal-nav {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  flex: 1;
+}
+
+.portal-nav li {
+  margin-bottom: 4px;
+}
+
+.portal-nav a {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 8px;
+  border-radius: 8px;
+  font-size: 13px;
+  color: #D1D5DB;
+  text-decoration: none;
+}
+
+.portal-nav a:hover {
+  background: rgba(15, 23, 42, 0.9);
+  color: #FFFFFF;
+}
+
+.portal-nav a.active {
+  background: linear-gradient(135deg, #003566, #004BA0);
+  color: #F9FAFB;
+}
+
+.portal-sidebar-footer {
+  font-size: 11px;
+  color: #6B7280;
+  margin-top: 8px;
+}
+
+/* Top bar + content */
+
+.portal-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.portal-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 18px;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.9);
+  background: rgba(3, 7, 18, 0.88);
+  backdrop-filter: blur(10px);
+}
+
+.portal-topbar-title {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.portal-topbar-user {
+  font-size: 12px;
+  color: #9CA3AF;
+}
+
+.portal-content {
+  padding: 14px 18px 18px;
+}
+
+/* Cards & grid */
+
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.card {
+  background: rgba(15, 23, 42, 0.9);
+  border-radius: 14px;
+  padding: 12px 12px 10px;
+  border: 1px solid rgba(15, 23, 42, 0.95);
+  box-shadow: 0 16px 35px rgba(0, 0, 0, 0.6);
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.card-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #E5E7EB;
+}
+
+.card-badge {
+  font-size: 11px;
+  color: #9CA3AF;
+}
+
+.card-value {
+  font-size: 18px;
+  font-weight: 700;
+  margin-top: 2px;
+}
+
+.card-sub {
+  font-size: 11px;
+  color: #9CA3AF;
+}
+
+/* Tables & lists */
+
+.table-simple {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.table-simple th,
+.table-simple td {
+  padding: 6px 4px;
+  border-bottom: 1px solid rgba(31, 41, 55, 0.8);
+}
+
+.table-simple th {
+  text-align: left;
+  color: #9CA3AF;
+  font-weight: 500;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 11px;
+}
+
+.chip-green {
+  background: rgba(22, 163, 74, 0.18);
+  color: #BBF7D0;
+}
+
+.chip-yellow {
+  background: rgba(245, 196, 0, 0.16);
+  color: #FEF3C7;
+}
+
+.chip-blue {
+  background: rgba(59, 130, 246, 0.18);
+  color: #BFDBFE;
+}
+
+.chip-red {
+  background: rgba(239, 68, 68, 0.18);
+  color: #FECACA;
+}
+
+/* Buttons */
+
+.btn-ghost {
+  border-radius: 999px;
+  border: 1px solid rgba(55, 65, 81, 0.9);
+  background: transparent;
+  color: #E5E7EB;
+  font-size: 11px;
+  padding: 3px 8px;
+  cursor: pointer;
+}
+
+.btn-ghost:hover {
+  border-color: #39E7FF;
+}
+
+/* Responsive */
+
+@media (max-width: 768px) {
+  .portal-sidebar {
+    display: none;
+  }
+  .portal-main {
+    flex: 1;
+  }
+  .portal-topbar {
+    padding: 10px 12px;
+  }
+  .portal-content {
+    padding: 12px 12px 16px;
+  }
+}

@@ -1,0 +1,15 @@
+config.php
+.env
+.env.*
+*.log
+/tmp
+/cache
+/vendor/
+/node_modules/
+.DS_Store
+Thumbs.db
+git add .
+git commit -m "ACA System: API v1 with JWT and core modules"
+
+
+

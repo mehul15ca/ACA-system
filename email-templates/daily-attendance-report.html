@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Daily Attendance Report – {{report_date}}</title>
+  <style>/* same style */</style>
+</head>
+<body>
+  <div class="wrapper">
+    <div class="card">
+      <div class="header">
+        <div class="title">Daily Attendance Report – {{report_date}}</div>
+      </div>
+
+      <p>Hi {{admin_name}},</p>
+      <p>Please find the attendance summary for {{report_date}}.</p>
+
+      {{#grounds}}
+      <h3 style="margin-top:18px; color:#003566;">Ground: {{ground_name}}</h3>
+
+      <h4>Students Present</h4>
+      <ul>
+        {{#students_present}}
+        <li>{{student_name}} ({{batch_name}})</li>
+        {{/students_present}}
+        {{^students_present}}
+        <li>No students present.</li>
+        {{/students_present}}
+      </ul>
+
+      <h4>Coaches Present</h4>
+      <ul>
+        {{#coaches_present}}
+        <li>{{coach_name}}</li>
+        {{/coaches_present}}
+        {{^coaches_present}}
+        <li>No coaches present.</li>
+        {{/coaches_present}}
+      </ul>
+
+      <h4>Session Notes</h4>
+      <p>{{session_notes_html}}</p>
+
+      <h4>Injuries Reported</h4>
+      <ul>
+        {{#injuries}}
+        <li>{{student_name}} – {{injury_area}} ({{severity}}). Action: {{action_taken}}</li>
+        {{/injuries}}
+        {{^injuries}}
+        <li>No injuries reported.</li>
+        {{/injuries}}
+      </ul>
+      {{/grounds}}
+
+      {{#weekly_fees_section}}
+      <hr style="margin:20px 0; border:none; border-top:1px solid #E5E7EB;">
+      <h3 style="color:#003566;">Weekly Fees Summary</h3>
+      <p><strong>Pending Fees Total:</strong> {{currency}} {{pending_fees_total}}</p>
+      <p><strong>Students with Pending Fees:</strong></p>
+      <ul>
+        {{#pending_students}}
+        <li>{{student_name}} – {{currency}} {{amount_due}} (Due: {{due_date}})</li>
+        {{/pending_students}}
+        {{^pending_students}}
+        <li>No pending fees.</li>
+        {{/pending_students}}
+
+      <p><strong>Upcoming Fees (Next 7 days):</strong></p>
+      <ul>
+        {{#upcoming_fees}}
+        <li>{{student_name}} – {{currency}} {{amount_due}} (Due: {{due_date}})</li>
+        {{/upcoming_fees}}
+        {{^upcoming_fees}}
+        <li>No upcoming fees in the next week.</li>
+        {{/upcoming_fees}}
+      </ul>
+      {{/weekly_fees_section}}
+
+      <p>Regards,<br>ACA System</p>
+    </div>
+  </div>
+</body>
+</html>

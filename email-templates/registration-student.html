@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Welcome to Australasia Cricket Academy</title>
+  <style>
+    body { background:#F3F4F6; margin:0; padding:20px; font-family:system-ui,-apple-system,"Segoe UI",sans-serif; }
+    .wrapper { max-width:600px; margin:0 auto; }
+    .card { background:#ffffff; border-radius:12px; padding:24px; box-shadow:0 10px 30px rgba(0,0,0,0.04); }
+    .header { text-align:center; margin-bottom:20px; }
+    .logo { max-height:60px; margin-bottom:10px; }
+    .title { font-size:20px; font-weight:700; color:#003566; }
+    .btn { display:inline-block; padding:10px 20px; background:#003566; color:#ffffff !important; text-decoration:none; border-radius:999px; font-size:14px; font-weight:600; }
+    .muted { color:#6B7280; font-size:12px; }
+    .info-table { width:100%; border-collapse:collapse; margin-top:12px; }
+    .info-table th, .info-table td { text-align:left; padding:6px 0; font-size:14px; }
+    .info-table th { width:140px; color:#6B7280; font-weight:500; }
+    .footer { text-align:center; margin-top:16px; font-size:11px; color:#9CA3AF; }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <div class="card">
+      <div class="header">
+        <img src="{{academy_logo_url}}" alt="Australasia Cricket Academy" class="logo">
+        <div class="title">Welcome to Australasia Cricket Academy</div>
+      </div>
+
+      <p>Hi {{student_name}},</p>
+
+      <p>
+        Your registration with <strong>Australasia Cricket Academy</strong> is now complete.
+        Below are your login details to access your student portal.
+      </p>
+
+      <table class="info-table">
+        <tr>
+          <th>Student Name</th>
+          <td>{{student_name}}</td>
+        </tr>
+        <tr>
+          <th>Student ID</th>
+          <td>{{student_id}}</td>
+        </tr>
+        <tr>
+          <th>Login Email</th>
+          <td>{{student_email}}</td>
+        </tr>
+        <tr>
+          <th>Temporary Password</th>
+          <td><strong>{{temporary_password}}</strong></td>
+        </tr>
+      </table>
+
+      <p style="margin-top:16px;">
+        Please click the button below to log in and change your password:
+      </p>
+
+      <p style="text-align:center; margin:18px 0;">
+        <a href="{{login_url}}" class="btn">Go to Student Login</a>
+      </p>
+
+      <p class="muted">
+        For security reasons, we recommend changing your password immediately after your first login.
+      </p>
+
+      <p>Train hard. Stay disciplined. Keep growing.</p>
+
+      <p>Warm regards,<br>Australasia Cricket Academy</p>
+    </div>
+
+    <div class="footer">
+      © {{current_year}} Australasia Cricket Academy. All rights reserved.
+    </div>
+  </div>
+</body>
+</html>

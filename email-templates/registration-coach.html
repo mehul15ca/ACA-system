@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Welcome to Australasia Cricket Academy</title>
+  <style>/* same styles as above */</style>
+</head>
+<body>
+  <div class="wrapper">
+    <div class="card">
+      <div class="header">
+        <img src="{{academy_logo_url}}" alt="Australasia Cricket Academy" class="logo">
+        <div class="title">Welcome to Australasia Cricket Academy</div>
+      </div>
+
+      <p>Hi {{coach_name}},</p>
+
+      <p>
+        Your coach profile has been created in the <strong>Australasia Cricket Academy</strong> system.
+        Below are your login details to access your coach portal.
+      </p>
+
+      <table class="info-table">
+        <tr>
+          <th>Coach Name</th>
+          <td>{{coach_name}}</td>
+        </tr>
+        <tr>
+          <th>Coach Code</th>
+          <td>{{coach_code}}</td>
+        </tr>
+        <tr>
+          <th>Login Email</th>
+          <td>{{coach_email}}</td>
+        </tr>
+        <tr>
+          <th>Temporary Password</th>
+          <td><strong>{{temporary_password}}</strong></td>
+        </tr>
+      </table>
+
+      <p style="margin-top:16px;">
+        Please log in and update your password:
+      </p>
+
+      <p style="text-align:center; margin:18px 0;">
+        <a href="{{coach_login_url}}" class="btn">Go to Coach Login</a>
+      </p>
+
+      <p class="muted">
+        For security reasons, we recommend changing your password immediately after your first login.
+      </p>
+
+      <p>Thank you for being a part of our coaching team.</p>
+
+      <p>Warm regards,<br>Australasia Cricket Academy</p>
+    </div>
+
+    <div class="footer">
+      © {{current_year}} Australasia Cricket Academy. All rights reserved.
+    </div>
+  </div>
+</body>
+</html>
