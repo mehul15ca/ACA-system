@@ -1,7 +1,7 @@
 <?php
-// ACA-System API v1 entrypoint
 declare(strict_types=1);
 
+// Entry point: only bootstrap + routes
 require __DIR__ . '/core/bootstrap.php';
 
 use ACA\Api\Core\Router;
@@ -20,7 +20,7 @@ require __DIR__ . '/routes/salaries.php';
 require __DIR__ . '/routes/expenses.php';
 require __DIR__ . '/routes/announcements.php';
 require __DIR__ . '/routes/notifications.php';
-
+require __DIR__ . '/routes/profile.php';
 
 // Dispatch request
 $router->dispatch();
