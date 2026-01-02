@@ -3,24 +3,23 @@ declare(strict_types=1);
 
 /*
 |--------------------------------------------------------------------------
-| Entry Point – ACA API
+| Entry Point – ACA API (v1)
 |--------------------------------------------------------------------------
-| Correct bootstrap order (NO autoload guessing)
+| Bootstrap handles:
+| - Autoload
+| - Env
+| - Headers
+| - Core classes
 |--------------------------------------------------------------------------
 */
 
-// Core primitives (order matters)
-require_once __DIR__ . '/core/Env.php';
-require_once __DIR__ . '/core/Response.php';
-require_once __DIR__ . '/core/DB.php';
-require_once __DIR__ . '/core/Router.php';
-
-// Optional shared bootstrap (middleware, headers, etc.)
 require_once __DIR__ . '/core/bootstrap.php';
 
 use ACA\Api\Core\Router;
 
-$router = new Router();
+$GLOBALS['router'] = new Router();
+$router = $GLOBALS['router'];
+
 
 /*
 |--------------------------------------------------------------------------

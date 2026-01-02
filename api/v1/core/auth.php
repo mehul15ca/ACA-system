@@ -5,44 +5,28 @@ namespace ACA\Api\Core;
 
 final class Auth
 {
-    public static function storeRefreshToken(int $userId, string $token): void
+    public static function user(): array
     {
-        $hash = hash('sha256', $token);
+        $auth = $_SERVER['HTTP_AUTHORIZATION'] ?? '';
 
-        DB::query(
-            "INSERT INTO refresh_tokens (user_id, token_hash, expires_at)
-             VALUES (?, ?, ?)",
-            [$userId, $hash, JWT::refreshExpiry()]
-        );
-    }
+        if (!preg_match('/Bearer\s+(.+)/i', $auth, $m)) {
+            Response::error(
+                'Authorization token missing',
+                401,
+                'AUTH_TOKEN_MISSING'
+            );
+        }
 
-    public static function rotateRefreshToken(string $token): ?int
-    {
-        $hash = hash('sha256', $token);
+        $payload = JWT::decode($m[1]);
 
-        $row = DB::fetch(
-            "SELECT * FROM refresh_tokens
-             WHERE token_hash = ? AND revoked = 0 AND expires_at > NOW()
-             LIMIT 1",
-            [$hash]
-        );
+        if (!$payload || !isset($payload['user_id'])) {
+            Response::error(
+                'Invalid token payload',
+                401,
+                'AUTH_INVALID_PAYLOAD'
+            );
+        }
 
-        if (!$row) return null;
-
-        DB::query(
-            "UPDATE refresh_tokens SET revoked = 1, last_used_at = NOW()
-             WHERE id = ?",
-            [$row['id']]
-        );
-
-        return (int)$row['user_id'];
-    }
-
-    public static function revokeAll(int $userId): void
-    {
-        DB::query(
-            "UPDATE refresh_tokens SET revoked = 1 WHERE user_id = ?",
-            [$userId]
-        );
+        return $payload;
     }
 }
