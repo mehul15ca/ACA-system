@@ -1,0 +1,22 @@
+# ACA API Error Codes (v1)
+
+## Authentication
+- AUTH_TOKEN_MISSING (401)
+- AUTH_TOKEN_INVALID (401)
+- JWT_SECRET_MISSING (500)
+
+## Authorization
+- PERMISSION_DENIED (403)
+
+## Routing
+- ROUTE_NOT_FOUND (404)
+- METHOD_NOT_ALLOWED (405)
+
+## Rate Limiting
+- RATE_LIMITED (429)
+
+## Server
+- SERVER_ERROR (500)
+
+## Validation
+- VALIDATION_ERROR (422)

@@ -1,7 +1,12 @@
 <?php
 declare(strict_types=1);
-
+header('X-API-Version: v1');
+header('X-API-Status: stable');
 header('Content-Type: application/json; charset=utf-8');
+
+// Request timing + request id (for logging)
+$GLOBALS['ACA_START_MS'] = (int) floor(microtime(true) * 1000);
+$GLOBALS['ACA_REQUEST_ID'] = bin2hex(random_bytes(12)); // 24 chars
 
 // CORS (tighten later using ACA_CORS_ORIGINS)
 header('Access-Control-Allow-Origin: *');
@@ -15,7 +20,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'OPTIONS') {
 
 /*
 |--------------------------------------------------------------------------
-| Autoload FIRST (so all classes resolve consistently)
+| Autoload FIRST
 |--------------------------------------------------------------------------
 */
 spl_autoload_register(function ($class) {
@@ -23,21 +28,17 @@ spl_autoload_register(function ($class) {
     $baseDir = __DIR__ . '/../';
 
     $len = strlen($prefix);
-    if (strncmp($prefix, $class, $len) !== 0) {
-        return;
-    }
+    if (strncmp($prefix, $class, $len) !== 0) return;
 
     $relative = substr($class, $len);
     $file = $baseDir . str_replace('\\', '/', $relative) . '.php';
 
-    if (file_exists($file)) {
-        require $file;
-    }
+    if (file_exists($file)) require $file;
 });
 
 /*
 |--------------------------------------------------------------------------
-| Load Env ONCE (single source of truth)
+| Load env once
 |--------------------------------------------------------------------------
 */
 require_once __DIR__ . '/env.php';
@@ -53,3 +54,7 @@ require_once __DIR__ . '/request.php';
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/jwt.php';
 require_once __DIR__ . '/router.php';
+
+// New (rate limit + logs)
+require_once __DIR__ . '/rate_limiter.php';
+require_once __DIR__ . '/api_logger.php';
