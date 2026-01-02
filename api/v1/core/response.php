@@ -8,6 +8,53 @@ final class Response
     private static int $statusCode = 200;
     private static ?string $lastErrorCode = null;
 
+    public static function success(
+        array $data = [],
+        string $message = 'OK',
+        int $status = 200,
+        array $meta = []
+    ): void {
+        self::$statusCode = $status;
+
+        http_response_code($status);
+
+        echo json_encode([
+            'success' => true,
+            'message' => $message,
+            'data'    => $data,
+            'meta'    => array_merge(self::meta(), $meta),
+        ], JSON_UNESCAPED_SLASHES);
+
+        exit;
+    }
+
+    public static function error(
+        string $message,
+        int $status,
+        string $errorCode,
+        array $details = []
+    ): void {
+        self::$statusCode   = $status;
+        self::$lastErrorCode = $errorCode;
+
+        http_response_code($status);
+
+        echo json_encode([
+            'success'    => false,
+            'error'      => $message,
+            'code'       => $status,
+            'error_code' => $errorCode,
+            'details'    => $details,
+            'meta'       => self::meta(),
+        ], JSON_UNESCAPED_SLASHES);
+
+        exit;
+    }
+
+    /* ---------------------------------------------
+     | Metadata helpers
+     --------------------------------------------- */
+
     public static function statusCode(): int
     {
         return self::$statusCode;
@@ -18,50 +65,12 @@ final class Response
         return self::$lastErrorCode;
     }
 
-    private static function baseMeta(): array
+    private static function meta(): array
     {
         return [
-            'request_id' => $GLOBALS['ACA_REQUEST_ID'] ?? null,
+            'request_id'  => $GLOBALS['ACA_REQUEST_ID'] ?? '',
             'api_version' => 'v1',
-            'timestamp' => gmdate('c'),
+            'timestamp'   => gmdate('c'),
         ];
-    }
-
-    public static function ok(array $data = [], string $message = 'OK', int $code = 200): void
-    {
-        self::$statusCode = $code;
-        self::$lastErrorCode = null;
-
-        http_response_code($code);
-        echo json_encode([
-            'success' => true,
-            'message' => $message,
-            'data' => $data,
-            'meta' => self::baseMeta(),
-        ], JSON_UNESCAPED_SLASHES);
-
-        exit;
-    }
-
-    public static function error(
-        string $message,
-        int $code = 400,
-        string $errorCode = 'ERROR',
-        array $details = []
-    ): void {
-        self::$statusCode = $code;
-        self::$lastErrorCode = $errorCode;
-
-        http_response_code($code);
-        echo json_encode([
-            'success' => false,
-            'error' => $message,
-            'code' => $code,
-            'error_code' => $errorCode,
-            'details' => $details,
-            'meta' => self::baseMeta(),
-        ], JSON_UNESCAPED_SLASHES);
-
-        exit;
     }
 }
