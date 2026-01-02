@@ -49,12 +49,13 @@ require_once __DIR__ . '/env.php';
 | Core helpers
 |--------------------------------------------------------------------------
 */
-require_once __DIR__ . '/response.php';
-require_once __DIR__ . '/request.php';
-require_once __DIR__ . '/db.php';
-require_once __DIR__ . '/jwt.php';
-require_once __DIR__ . '/router.php';
+require_once __DIR__ . '/Env.php';
+require_once __DIR__ . '/Response.php';
+require_once __DIR__ . '/Request.php';
+require_once __DIR__ . '/DB.php';
+require_once __DIR__ . '/JWT.php';
+require_once __DIR__ . '/Router.php';
 
-// New (rate limit + logs)
-require_once __DIR__ . '/rate_limiter.php';
-require_once __DIR__ . '/api_logger.php';
+//require_once __DIR__ . '/RateLimiter.php';
+//require_once __DIR__ . '/ApiLogger.php';
+

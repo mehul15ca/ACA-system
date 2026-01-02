@@ -8,131 +8,132 @@ use ACA\Api\Core\Request;
 use ACA\Api\Core\Response;
 use ACA\Api\Core\JWT;
 use ACA\Api\Core\Auth;
+use ACA\Api\Core\Auth\RefreshTokenService;
 
 final class AuthController
 {
-  public static function login(): void
-  {
-    $data = Request::json();
+    public static function login(): void
+    {
+        $data = Request::json();
 
-    // Accept email OR username for login
-    $login = trim((string)($data['email'] ?? $data['username'] ?? ''));
-    $password = (string)($data['password'] ?? '');
+        $login    = trim((string)($data['email'] ?? $data['username'] ?? ''));
+        $password = (string)($data['password'] ?? '');
 
-    if ($login === '' || $password === '') {
-      Response::error('Email/Username and password required', 422);
+        if ($login === '' || $password === '') {
+            Response::error('Email/Username and password required', 422, 'LOGIN_MISSING_FIELDS');
+        }
+
+        $pdo = DB::conn();
+
+        $result = $pdo->query("SHOW COLUMNS FROM users");
+        $fields = [];
+        while ($row = $result->fetch_assoc()) {
+            $fields[] = strtolower($row['Field']);
+        }
+
+        $idCol    = self::pick($fields, ['id', 'user_id', 'userid']);
+        $loginCol = self::pick($fields, ['email', 'username', 'user_name', 'login']);
+        $passCol  = self::pick($fields, ['password', 'pass', 'passwd', 'password_hash']);
+        $roleCol  = self::pick($fields, ['role', 'user_role', 'type']);
+
+        if (!$idCol || !$loginCol || !$passCol || !$roleCol) {
+            Response::error('Users table schema not compatible', 500, 'USERS_SCHEMA_MISMATCH');
+        }
+
+        $stmt = $pdo->prepare("
+            SELECT `$idCol` AS id, `$loginCol` AS login, `$passCol` AS pass, `$roleCol` AS role
+            FROM users
+            WHERE `$loginCol` = ?
+            LIMIT 1
+        ");
+        $stmt->bind_param('s', $login);
+        $stmt->execute();
+        $user = $stmt->get_result()->fetch_assoc();
+
+        if (!$user) {
+            Response::error('Invalid credentials', 401, 'LOGIN_INVALID');
+        }
+
+        $stored = (string)$user['pass'];
+        $valid = str_starts_with($stored, '$')
+            ? password_verify($password, $stored)
+            : hash_equals($stored, $password);
+
+        if (!$valid) {
+            Response::error('Invalid credentials', 401, 'LOGIN_INVALID');
+        }
+
+        $permStmt = $pdo->prepare("
+            SELECT p.code
+            FROM permissions p
+            JOIN role_permissions rp ON rp.permission_id = p.id
+            WHERE rp.role = ?
+        ");
+        $permStmt->bind_param('s', $user['role']);
+        $permStmt->execute();
+
+        $permissions = [];
+        $res = $permStmt->get_result();
+        while ($r = $res->fetch_assoc()) {
+            $permissions[] = $r['code'];
+        }
+
+        $accessToken = JWT::issueAccessToken([
+            'user_id'     => (int)$user['id'],
+            'role'        => $user['role'],
+            'permissions' => $permissions,
+        ]);
+
+        $refreshToken = RefreshTokenService::generateToken();
+        RefreshTokenService::store(
+            (int)$user['id'],
+            $refreshToken,
+            $_SERVER['REMOTE_ADDR'] ?? null,
+            $_SERVER['HTTP_USER_AGENT'] ?? null
+        );
+
+        Response::ok([
+            'access_token'  => $accessToken,
+            'refresh_token' => $refreshToken,
+            'token'         => $accessToken,
+            'user' => [
+                'id'    => (int)$user['id'],
+                'login' => $user['login'],
+                'role'  => $user['role'],
+            ],
+        ], 'Login successful');
     }
 
-    $pdo = DB::conn();
-
-    /* -------------------------------------------------
-       Detect USERS table schema dynamically
-    ------------------------------------------------- */
-    $columns = $pdo->query("SHOW COLUMNS FROM users")->fetchAll();
-    $fields = array_map(fn($c) => strtolower($c['Field']), $columns);
-
-    $idCol = self::pick($fields, ['id', 'user_id', 'userid']);
-    $loginCol = self::pick($fields, ['email', 'username', 'user_name', 'login']);
-    $passCol = self::pick($fields, ['password', 'pass', 'passwd', 'password_hash']);
-    $roleCol = self::pick($fields, ['role', 'user_role', 'type']);
-
-    if (!$idCol || !$loginCol || !$passCol || !$roleCol) {
-      Response::error(
-        'Users table schema not compatible',
-        500,
-        'USERS_SCHEMA_MISMATCH',
-        $fields
-      );
+    // ✅ REQUIRED BY ROUTES
+    public static function refresh(): void
+    {
+        Response::error('Refresh not implemented yet', 501, 'REFRESH_NOT_IMPLEMENTED');
     }
 
-    /* -------------------------------------------------
-       Fetch user
-    ------------------------------------------------- */
-    $sql = "
-      SELECT
-        `$idCol`   AS id,
-        `$loginCol` AS login,
-        `$passCol` AS pass,
-        `$roleCol` AS role
-      FROM users
-      WHERE `$loginCol` = ?
-      LIMIT 1
-    ";
-
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute([$login]);
-    $user = $stmt->fetch();
-
-    if (!$user) {
-      Response::error('Invalid credentials', 401);
+    // ✅ REQUIRED BY ROUTES
+    public static function logout(): void
+    {
+        Response::ok(null, 'Logged out');
     }
 
-    /* -------------------------------------------------
-       Verify password (hashed OR legacy plain)
-    ------------------------------------------------- */
-    $stored = (string)$user['pass'];
-    $valid = false;
+    public static function me(): void
+    {
+        $payload = Auth::user();
 
-    if (str_starts_with($stored, '$2y$') || str_starts_with($stored, '$argon')) {
-      $valid = password_verify($password, $stored);
-    } else {
-      // legacy plain-text fallback (temporary)
-      $valid = hash_equals($stored, $password);
+        Response::ok([
+            'user_id'     => $payload['user_id'],
+            'role'        => $payload['role'],
+            'permissions' => $payload['permissions'],
+        ], 'Authenticated');
     }
 
-    if (!$valid) {
-      Response::error('Invalid credentials', 401);
+    private static function pick(array $fields, array $candidates): ?string
+    {
+        foreach ($candidates as $c) {
+            if (in_array($c, $fields, true)) {
+                return $c;
+            }
+        }
+        return null;
     }
-
-    /* -------------------------------------------------
-       Permissions
-    ------------------------------------------------- */
-    $permStmt = $pdo->prepare("
-      SELECT p.code
-      FROM permissions p
-      JOIN role_permissions rp ON rp.permission_id = p.id
-      WHERE rp.role = ?
-    ");
-    $permStmt->execute([$user['role']]);
-    $permissions = array_column($permStmt->fetchAll(), 'code');
-
-    /* -------------------------------------------------
-       JWT
-    ------------------------------------------------- */
-    $token = JWT::encode([
-      'user_id' => (int)$user['id'],
-      'role' => $user['role'],
-      'permissions' => $permissions,
-    ]);
-
-    Response::ok([
-      'token' => $token,
-      'user' => [
-        'id' => (int)$user['id'],
-        'login' => $user['login'],
-        'role' => $user['role'],
-      ],
-    ], 'Login successful');
-  }
-
-  public static function me(): void
-  {
-    $payload = Auth::user();
-
-    Response::ok([
-      'user_id' => $payload['user_id'],
-      'role' => $payload['role'],
-      'permissions' => $payload['permissions'],
-    ], 'Authenticated');
-  }
-
-  private static function pick(array $fields, array $candidates): ?string
-  {
-    foreach ($candidates as $c) {
-      if (in_array($c, $fields, true)) {
-        return $c;
-      }
-    }
-    return null;
-  }
 }
