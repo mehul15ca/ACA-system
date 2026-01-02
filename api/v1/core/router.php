@@ -5,43 +5,67 @@ namespace ACA\Api\Core;
 
 final class Router
 {
+    /**
+     * Routes format:
+     * [METHOD][PATH] => [
+     *   'handler' => callable,
+     *   'middleware' => callable[]
+     * ]
+     */
     private array $routes = [];
 
-    /* -----------------------------
+    /* -------------------------------------------------
        Route registration
-    ----------------------------- */
+    ------------------------------------------------- */
 
-    public function get(string $path, $handler): void
+    public function get(string $path, callable|array $handler, array $middleware = []): void
     {
-        $this->map('GET', $path, $handler);
+        $this->map('GET', $path, $handler, $middleware);
     }
 
-    public function post(string $path, $handler): void
+    public function post(string $path, callable|array $handler, array $middleware = []): void
     {
-        $this->map('POST', $path, $handler);
+        $this->map('POST', $path, $handler, $middleware);
     }
 
-    /* -----------------------------
-       Core routing
-    ----------------------------- */
+    /* -------------------------------------------------
+       Core mapping
+    ------------------------------------------------- */
 
-    private function map(string $method, string $path, $handler): void
-    {
+    private function map(
+        string $method,
+        string $path,
+        callable|array $handler,
+        array $middleware = []
+    ): void {
         if (!is_callable($handler)) {
             throw new \InvalidArgumentException('Route handler is not callable');
         }
 
-        $this->routes[$method][$this->normalize($path)] = $handler;
+        foreach ($middleware as $mw) {
+            if (!is_callable($mw)) {
+                throw new \InvalidArgumentException('Middleware must be callable');
+            }
+        }
+
+        $this->routes[$method][$this->normalize($path)] = [
+            'handler'    => $handler,
+            'middleware' => $middleware,
+        ];
     }
+
+    /* -------------------------------------------------
+       Dispatch
+    ------------------------------------------------- */
 
     public function dispatch(): void
     {
-        $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
+        $method = strtoupper($_SERVER['REQUEST_METHOD'] ?? 'GET');
         $path   = $this->resolvePath();
 
-        $handler = $this->routes[$method][$path] ?? null;
+        $route = $this->routes[$method][$path] ?? null;
 
-        if (!$handler) {
+        if (!$route) {
             Response::error(
                 'Not Found',
                 404,
@@ -51,7 +75,14 @@ final class Router
         }
 
         try {
-            call_user_func($handler);
+            // Run middleware in order
+            $context = null;
+            foreach ($route['middleware'] as $mw) {
+                $context = $mw($context);
+            }
+
+            // Call handler
+            call_user_func($route['handler']);
         } catch (\Throwable $e) {
             Response::error(
                 'Server Error',
@@ -62,19 +93,21 @@ final class Router
         }
     }
 
-    /* -----------------------------
+    /* -------------------------------------------------
        Helpers
-    ----------------------------- */
+    ------------------------------------------------- */
 
     private function resolvePath(): string
     {
         $uri = $_SERVER['REQUEST_URI'] ?? '/';
         $uri = explode('?', $uri, 2)[0];
 
+        // Strip /api/v1
         if (($pos = strpos($uri, '/api/v1')) !== false) {
-            $uri = substr($uri, $pos + 7);
+            $uri = substr($uri, $pos + strlen('/api/v1'));
         }
 
+        // Strip index.php
         $uri = str_replace('/index.php', '', $uri);
 
         return $this->normalize($uri ?: '/');

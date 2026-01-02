@@ -85,12 +85,14 @@ final class AuthController
         ]);
 
         $refreshToken = RefreshTokenService::generateToken();
-        RefreshTokenService::store(
-            (int)$user['id'],
-            $refreshToken,
-            $_SERVER['REMOTE_ADDR'] ?? null,
-            $_SERVER['HTTP_USER_AGENT'] ?? null
-        );
+
+RefreshTokenService::store(
+    (int)$user['id'],
+    $refreshToken,
+    $_SERVER['REMOTE_ADDR'] ?? null,
+    $_SERVER['HTTP_USER_AGENT'] ?? null
+);
+
 
         Response::ok([
             'access_token'  => $accessToken,

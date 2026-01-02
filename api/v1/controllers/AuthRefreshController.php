@@ -19,22 +19,44 @@ final class AuthRefreshController
             Response::error('Refresh token required', 422, 'REFRESH_MISSING');
         }
 
-        $tokenHash = hash('sha256', $refreshToken);
+        $hash = hash('sha256', $refreshToken);
 
         $row = DB::selectOne(
             "SELECT * FROM auth_refresh_tokens
              WHERE token_hash = ?
-               AND revoked_at IS NULL
-               AND expires_at > NOW()
              LIMIT 1",
-            [$tokenHash]
+            [$hash]
         );
 
+        // Token never existed → invalid
         if (!$row) {
             Response::error('Invalid refresh token', 401, 'REFRESH_INVALID');
         }
 
-        // Rotate: revoke old token
+        // 🔥 REUSE DETECTED
+        if ($row['revoked_at'] !== null) {
+            // Revoke entire family
+            DB::execute(
+                "UPDATE auth_refresh_tokens
+                 SET revoked_at = NOW()
+                 WHERE family_id = ?
+                   AND revoked_at IS NULL",
+                [$row['family_id']]
+            );
+
+            Response::error(
+                'Refresh token reuse detected',
+                401,
+                'REFRESH_REUSE_DETECTED'
+            );
+        }
+
+        // Expired
+        if (strtotime($row['expires_at']) <= time()) {
+            Response::error('Refresh token expired', 401, 'REFRESH_EXPIRED');
+        }
+
+        // Rotate current token
         DB::execute(
             "UPDATE auth_refresh_tokens
              SET revoked_at = NOW()
@@ -42,23 +64,22 @@ final class AuthRefreshController
             [(int)$row['id']]
         );
 
-        // Issue new refresh token
         $newRefresh = bin2hex(random_bytes(32));
-        $newHash    = hash('sha256', $newRefresh);
+        $newHash = hash('sha256', $newRefresh);
 
         DB::execute(
             "INSERT INTO auth_refresh_tokens
-             (user_id, token_hash, issued_at, expires_at, ip_address, user_agent)
-             VALUES (?, ?, NOW(), DATE_ADD(NOW(), INTERVAL 30 DAY), ?, ?)",
+             (user_id, family_id, token_hash, issued_at, expires_at, ip_address, user_agent)
+             VALUES (?, ?, ?, NOW(), DATE_ADD(NOW(), INTERVAL 30 DAY), ?, ?)",
             [
                 (int)$row['user_id'],
+                $row['family_id'],
                 $newHash,
                 $_SERVER['REMOTE_ADDR'] ?? null,
                 $_SERVER['HTTP_USER_AGENT'] ?? null
             ]
         );
 
-        // Issue new access token
         $accessToken = JWT::issueAccessToken([
             'user_id' => (int)$row['user_id']
         ]);
