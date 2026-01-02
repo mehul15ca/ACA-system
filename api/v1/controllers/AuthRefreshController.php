@@ -1,41 +1,71 @@
 <?php
+declare(strict_types=1);
 
 namespace ACA\Api\Controllers;
 
-use ACA\Api\Core\Auth\JWTService;
-use ACA\Api\Core\Auth\RefreshTokenService;
+use ACA\Api\Core\Request;
 use ACA\Api\Core\Response;
+use ACA\Api\Core\JWT;
+use ACA\Api\Core\DB;
 
-class AuthRefreshController
+final class AuthRefreshController
 {
-    public function refresh(): void
+    public static function refresh(): void
     {
-        $input = json_decode(file_get_contents('php://input'), true);
+        $data = Request::json();
+        $refreshToken = (string)($data['refresh_token'] ?? '');
 
-        if (empty($input['refresh_token'])) {
-            Response::error('Refresh token required', 400);
-            return;
+        if ($refreshToken === '') {
+            Response::error('Refresh token required', 422, 'REFRESH_MISSING');
         }
 
-        $tokenRow = RefreshTokenService::findValid($input['refresh_token']);
+        $tokenHash = hash('sha256', $refreshToken);
 
-        if (!$tokenRow) {
-            // possible reuse attack
-            RefreshTokenService::revokeChain($input['refresh_token']);
-            Response::error('Invalid refresh token', 401);
-            return;
+        $row = DB::selectOne(
+            "SELECT * FROM auth_refresh_tokens
+             WHERE token_hash = ?
+               AND revoked_at IS NULL
+               AND expires_at > NOW()
+             LIMIT 1",
+            [$tokenHash]
+        );
+
+        if (!$row) {
+            Response::error('Invalid refresh token', 401, 'REFRESH_INVALID');
         }
 
-        $newRefreshToken = RefreshTokenService::rotate($tokenRow);
+        // Rotate: revoke old token
+        DB::execute(
+            "UPDATE auth_refresh_tokens
+             SET revoked_at = NOW()
+             WHERE id = ?",
+            [(int)$row['id']]
+        );
 
-        $accessToken = JWTService::generate([
-            'user_id' => $tokenRow['user_id']
+        // Issue new refresh token
+        $newRefresh = bin2hex(random_bytes(32));
+        $newHash    = hash('sha256', $newRefresh);
+
+        DB::execute(
+            "INSERT INTO auth_refresh_tokens
+             (user_id, token_hash, issued_at, expires_at, ip_address, user_agent)
+             VALUES (?, ?, NOW(), DATE_ADD(NOW(), INTERVAL 30 DAY), ?, ?)",
+            [
+                (int)$row['user_id'],
+                $newHash,
+                $_SERVER['REMOTE_ADDR'] ?? null,
+                $_SERVER['HTTP_USER_AGENT'] ?? null
+            ]
+        );
+
+        // Issue new access token
+        $accessToken = JWT::issueAccessToken([
+            'user_id' => (int)$row['user_id']
         ]);
 
         Response::success([
             'access_token'  => $accessToken,
-            'refresh_token' => $newRefreshToken,
-            'token_type'    => 'Bearer'
-        ]);
+            'refresh_token' => $newRefresh
+        ], 'Token refreshed');
     }
 }
