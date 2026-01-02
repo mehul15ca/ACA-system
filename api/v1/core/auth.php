@@ -5,34 +5,44 @@ namespace ACA\Api\Core;
 
 final class Auth
 {
-    public static function user(): array
+    public static function storeRefreshToken(int $userId, string $token): void
     {
-        $header = $_SERVER['HTTP_AUTHORIZATION'] ?? '';
+        $hash = hash('sha256', $token);
 
-        if (!preg_match('/Bearer\s+(.+)/i', $header, $m)) {
-            Response::error('Missing token', 401, 'AUTH_TOKEN_MISSING');
-        }
-
-        $payload = JWT::decode($m[1]);
-
-        if (!$payload) {
-            Response::error('Invalid or expired token', 401, 'AUTH_TOKEN_INVALID');
-        }
-
-        return $payload;
+        DB::query(
+            "INSERT INTO refresh_tokens (user_id, token_hash, expires_at)
+             VALUES (?, ?, ?)",
+            [$userId, $hash, JWT::refreshExpiry()]
+        );
     }
 
-    public static function requirePermission(string $permission): array
+    public static function rotateRefreshToken(string $token): ?int
     {
-        $user = self::user();
+        $hash = hash('sha256', $token);
 
-        if (
-            $user['role'] !== 'superadmin' &&
-            !in_array($permission, $user['permissions'] ?? [], true)
-        ) {
-            Response::error('Permission denied', 403, 'PERMISSION_DENIED');
-        }
+        $row = DB::fetch(
+            "SELECT * FROM refresh_tokens
+             WHERE token_hash = ? AND revoked = 0 AND expires_at > NOW()
+             LIMIT 1",
+            [$hash]
+        );
 
-        return $user;
+        if (!$row) return null;
+
+        DB::query(
+            "UPDATE refresh_tokens SET revoked = 1, last_used_at = NOW()
+             WHERE id = ?",
+            [$row['id']]
+        );
+
+        return (int)$row['user_id'];
+    }
+
+    public static function revokeAll(int $userId): void
+    {
+        DB::query(
+            "UPDATE refresh_tokens SET revoked = 1 WHERE user_id = ?",
+            [$userId]
+        );
     }
 }
