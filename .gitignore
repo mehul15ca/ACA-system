@@ -9,7 +9,7 @@ config.php
 .DS_Store
 Thumbs.db
 api/v1/.env
-
-
-
+README.md
+config.example.php
+.env.example
 

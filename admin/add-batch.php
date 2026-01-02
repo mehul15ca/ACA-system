@@ -1,45 +1,37 @@
 <?php
-include "../config.php";
-checkLogin();
+require_once __DIR__ . '/_bootstrap.php';
 
-$role = currentUserRole();
-if (!in_array($role, ['admin', 'superadmin'])) {
-    http_response_code(403);
-    echo "Access denied. Admin/Superadmin only.";
-    exit;
-}
+AdminGuard::requirePermission(Permissions::BATCHES_MANAGE);
 
-$message = "";
+$message = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $name      = trim($_POST['name']);
-    $code      = trim($_POST['code']);
-    $age_group = trim($_POST['age_group']);
-    $status    = $_POST['status'];
+    $name      = trim($_POST['name'] ?? '');
+    $code      = trim($_POST['code'] ?? '');
+    $age_group = trim($_POST['age_group'] ?? '');
+    $status    = $_POST['status'] ?? 'active';
 
-    if ($name === "") {
-        $message = "Batch name is required.";
+    if ($name === '') {
+        $message = 'Batch name is required.';
+    } elseif (!in_array($status, ['active','disabled'], true)) {
+        $message = 'Invalid status.';
     } else {
-        $stmt = $conn->prepare("
-            INSERT INTO batches (name, code, age_group, status)
-            VALUES (?, ?, ?, ?)
-        ");
-        $stmt->bind_param(
-            "ssss",
-            $name,
-            $code,
-            $age_group,
-            $status
+        $stmt = $conn->prepare(
+            "INSERT INTO batches (name, code, age_group, status)
+             VALUES (?, ?, ?, ?)"
         );
+        $stmt->bind_param('ssss', $name, $code, $age_group, $status);
 
         if ($stmt->execute()) {
-            $message = "Batch added successfully.";
+            $message = 'Batch added successfully.';
         } else {
-            $message = "Error: " . $conn->error;
+            $message = 'Database error.';
         }
+        $stmt->close();
     }
 }
 ?>
+
 <?php include "includes/header.php"; ?>
 <?php include "includes/sidebar.php"; ?>
 
@@ -47,22 +39,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 <div class="form-card">
     <?php if ($message): ?>
-        <p style="margin-bottom:10px;"><?php echo htmlspecialchars($message); ?></p>
+        <p><?php echo htmlspecialchars($message); ?></p>
     <?php endif; ?>
 
     <form method="POST">
+        <?= Csrf::field(); ?>
+
         <div class="form-row">
             <label>Batch Name</label>
             <input type="text" name="name" required>
         </div>
 
         <div class="form-row">
-            <label>Code (optional, unique if used)</label>
+            <label>Code (optional)</label>
             <input type="text" name="code">
         </div>
 
         <div class="form-row">
-            <label>Age Group (free text, e.g. U10, U12, Beginners)</label>
+            <label>Age Group</label>
             <input type="text" name="age_group">
         </div>
 
@@ -74,12 +68,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </select>
         </div>
 
-        <button type="submit" class="button-primary">Save Batch</button>
+        <button class="button-primary">Save Batch</button>
     </form>
 </div>
 
-<p style="margin-top:10px;">
-    <a class="text-link" href="batches.php">⬅ Back to Batches</a>
-</p>
+<p><a href="batches.php" class="text-link">⬅ Back</a></p>
 
 <?php include "includes/footer.php"; ?>

@@ -1,122 +1,73 @@
 <?php
-include "../config.php";
-checkLogin();
+require_once __DIR__ . '/_bootstrap.php';
 
-$role = currentUserRole();
-if (!in_array($role, ['admin','superadmin'])) {
-    http_response_code(403);
-    echo "Access denied. Admin/Superadmin only.";
-    exit;
-}
+AdminGuard::requirePermission(Permissions::GROUNDS_MANAGE);
 
-$message = "";
+$message = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $name     = trim($_POST['name']);
-    $code     = trim($_POST['code']);
-    $address  = trim($_POST['address']);
-    $city     = trim($_POST['city']);
-    $province = trim($_POST['province']);
-    $country  = trim($_POST['country']);
-    $password = trim($_POST['password']); // plain text as per decision
+    $name     = trim($_POST['name'] ?? '');
+    $code     = trim($_POST['code'] ?? '');
+    $address  = trim($_POST['address'] ?? '');
+    $city     = trim($_POST['city'] ?? '');
+    $province = trim($_POST['province'] ?? '');
+    $country  = trim($_POST['country'] ?? 'Canada');
+    $password = trim($_POST['password'] ?? '');
     $indoor   = isset($_POST['indoor']) ? 1 : 0;
-    $status   = $_POST['status'];
+    $status   = $_POST['status'] ?? 'active';
 
-    if ($name === "") {
-        $message = "Name is required.";
+    if ($name === '') {
+        $message = 'Name required.';
     } else {
-        $stmt = $conn->prepare("
-            INSERT INTO grounds (name, code, address, city, province, country, password, indoor, status)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ");
+        $stmt = $conn->prepare(
+            "INSERT INTO grounds
+            (name, code, address, city, province, country, password, indoor, status)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
+        );
         $stmt->bind_param(
-            "sssssssis",
-            $name,
-            $code,
-            $address,
-            $city,
-            $province,
-            $country,
-            $password,
-            $indoor,
-            $status
+            'sssssssis',
+            $name, $code, $address, $city,
+            $province, $country, $password,
+            $indoor, $status
         );
 
         if ($stmt->execute()) {
-            $message = "Ground added successfully.";
+            $message = 'Ground added.';
         } else {
-            $message = "Error: " . $conn->error;
+            $message = 'Database error.';
         }
+        $stmt->close();
     }
 }
 ?>
+
 <?php include "includes/header.php"; ?>
 <?php include "includes/sidebar.php"; ?>
 
-<h1>Add Ground / Location</h1>
+<h1>Add Ground</h1>
 
 <div class="form-card">
-    <?php if ($message): ?>
-        <p style="margin-bottom:10px;"><?php echo htmlspecialchars($message); ?></p>
-    <?php endif; ?>
+    <?php if ($message): ?><p><?= htmlspecialchars($message) ?></p><?php endif; ?>
 
     <form method="POST">
-        <div class="form-row">
-            <label>Ground Name</label>
-            <input type="text" name="name" required>
-        </div>
+        <?= Csrf::field(); ?>
 
-        <div class="form-row">
-            <label>Code (short identifier, optional)</label>
-            <input type="text" name="code">
-        </div>
+        <input name="name" required placeholder="Ground Name">
+        <input name="code" placeholder="Code">
+        <input name="address" placeholder="Address">
+        <input name="city" placeholder="City">
+        <input name="province" placeholder="Province">
+        <input name="country" value="Canada">
+        <input name="password" placeholder="Attendance Password">
+        <label><input type="checkbox" name="indoor"> Indoor</label>
 
-        <div class="form-row">
-            <label>Address</label>
-            <input type="text" name="address">
-        </div>
+        <select name="status">
+            <option value="active">active</option>
+            <option value="disabled">disabled</option>
+        </select>
 
-        <div class="form-row">
-            <label>City</label>
-            <input type="text" name="city">
-        </div>
-
-        <div class="form-row">
-            <label>Province</label>
-            <input type="text" name="province">
-        </div>
-
-        <div class="form-row">
-            <label>Country</label>
-            <input type="text" name="country" value="Canada">
-        </div>
-
-        <div class="form-row">
-            <label>Attendance Login Password (plain text)</label>
-            <input type="text" name="password">
-        </div>
-
-        <div class="form-row">
-            <label>
-                <input type="checkbox" name="indoor" value="1">
-                Indoor facility
-            </label>
-        </div>
-
-        <div class="form-row">
-            <label>Status</label>
-            <select name="status">
-                <option value="active">active</option>
-                <option value="disabled">disabled</option>
-            </select>
-        </div>
-
-        <button type="submit" class="button-primary">Save Ground</button>
+        <button class="button-primary">Save Ground</button>
     </form>
 </div>
-
-<p style="margin-top:10px;">
-    <a class="text-link" href="grounds.php">⬅ Back to Grounds</a>
-</p>
 
 <?php include "includes/footer.php"; ?>

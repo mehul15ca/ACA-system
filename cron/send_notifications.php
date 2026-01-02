@@ -1,4 +1,9 @@
 <?php
+if (php_sapi_name() !== 'cli') {
+    http_response_code(403);
+    exit;
+}
+
 require __DIR__ . '/../includes/cron_guard.php';
 $conn->query("DELETE FROM password_resets WHERE expires_at < NOW()");
 require_once __DIR__ . '/../config.php';

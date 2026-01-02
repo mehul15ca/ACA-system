@@ -1,4 +1,9 @@
 <?php
+if (php_sapi_name() !== 'cli') {
+    http_response_code(403);
+    exit;
+}
+
 require_once "../config.php";
 
 // 1) Generate PDF (your existing function)

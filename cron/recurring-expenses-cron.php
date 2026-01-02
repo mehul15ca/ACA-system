@@ -1,4 +1,9 @@
 <?php
+if (php_sapi_name() !== 'cli') {
+    http_response_code(403);
+    exit;
+}
+
 // Daily cron to create expense instances from recurring templates
 include __DIR__ . "/../config.php";
 

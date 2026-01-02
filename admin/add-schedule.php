@@ -1,122 +1,98 @@
 <?php
-include "../config.php";
-checkLogin();
+require_once __DIR__ . '/_bootstrap.php';
 
-$role = currentUserRole();
-if (!in_array($role, ['admin','superadmin'])) {
-    http_response_code(403);
-    echo "Access denied. Admin/Superadmin only.";
-    exit;
-}
+AdminGuard::requirePermission(Permissions::SCHEDULES_MANAGE);
 
-$message = "";
+$message = '';
 
 // Fetch dropdown data
-$batches_res = $conn->query("SELECT id, name, age_group FROM batches WHERE status='active' ORDER BY name ASC");
-$grounds_res = $conn->query("SELECT id, name FROM grounds WHERE status='active' ORDER BY name ASC");
-$coaches_res = $conn->query("SELECT id, name FROM coaches WHERE status='active' ORDER BY name ASC");
+$batches = [];
+$grounds = [];
+$coaches = [];
+
+$r = $conn->query("SELECT id, name, age_group FROM batches WHERE status='active' ORDER BY name");
+while ($row = $r->fetch_assoc()) { $batches[] = $row; }
+
+$r = $conn->query("SELECT id, name FROM grounds WHERE status='active' ORDER BY name");
+while ($row = $r->fetch_assoc()) { $grounds[] = $row; }
+
+$r = $conn->query("SELECT id, name FROM coaches WHERE status='active' ORDER BY name");
+while ($row = $r->fetch_assoc()) { $coaches[] = $row; }
+
+$days = [
+    1 => 'Monday', 2 => 'Tuesday', 3 => 'Wednesday',
+    4 => 'Thursday', 5 => 'Friday', 6 => 'Saturday', 7 => 'Sunday'
+];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $batch_id    = intval($_POST['batch_id']);
-    $day_of_week = intval($_POST['day_of_week']);
-    $start_time  = $_POST['start_time'];
-    $end_time    = $_POST['end_time'];
-    $ground_id   = intval($_POST['ground_id']);
-    $coach_id    = intval($_POST['coach_id']);
-    $status      = $_POST['status'];
+    $batch_id    = (int)($_POST['batch_id'] ?? 0);
+    $day_of_week = (int)($_POST['day_of_week'] ?? 0);
+    $start_time  = $_POST['start_time'] ?? '';
+    $end_time    = $_POST['end_time'] ?? '';
+    $ground_id   = (int)($_POST['ground_id'] ?? 0);
+    $coach_id    = (int)($_POST['coach_id'] ?? 0);
+    $status      = $_POST['status'] ?? 'upcoming';
 
-    if ($batch_id == 0 || $day_of_week == 0 || $ground_id == 0 || $coach_id == 0) {
-        $message = "All fields are required.";
+    if ($batch_id <= 0 || $day_of_week <= 0 || $ground_id <= 0 || $coach_id <= 0 || $start_time === '' || $end_time === '') {
+        $message = 'All fields are required.';
     } elseif ($start_time >= $end_time) {
-        $message = "Start time must be earlier than end time.";
+        $message = 'Start time must be earlier than end time.';
     } else {
-        // Overlap check
-        $stmt = $conn->prepare("
-            SELECT COUNT(*) AS cnt
-            FROM batch_schedule
-            WHERE day_of_week = ?
-              AND (
-                    coach_id = ?
-                    OR ground_id = ?
-                  )
-              AND NOT (
-                    ? >= end_time
-                    OR ? <= start_time
-                  )
-        ");
-        $stmt->bind_param(
-            "iiiss",
-            $day_of_week,
-            $coach_id,
-            $ground_id,
-            $start_time,
-            $end_time
+        $chk = $conn->prepare(
+            "SELECT COUNT(*) FROM batch_schedule
+             WHERE day_of_week=?
+               AND (coach_id=? OR ground_id=?)
+               AND NOT (? >= end_time OR ? <= start_time)"
         );
-        $stmt->execute();
-        $overlap = $stmt->get_result()->fetch_assoc()['cnt'];
+        $chk->bind_param("iiiss", $day_of_week, $coach_id, $ground_id, $start_time, $end_time);
+        $chk->execute();
+        $chk->bind_result($cnt);
+        $chk->fetch();
+        $chk->close();
 
-        if ($overlap > 0) {
-            $message = "Overlap detected. Coach or ground is already booked for that time.";
+        if ($cnt > 0) {
+            $message = 'Overlap detected for coach or ground.';
         } else {
-            $insert = $conn->prepare("
-                INSERT INTO batch_schedule (batch_id, day_of_week, start_time, end_time, ground_id, coach_id, status)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-            ");
-            $insert->bind_param(
-                "iississ",
-                $batch_id,
-                $day_of_week,
-                $start_time,
-                $end_time,
-                $ground_id,
-                $coach_id,
-                $status
+            $ins = $conn->prepare(
+                "INSERT INTO batch_schedule
+                 (batch_id, day_of_week, start_time, end_time, ground_id, coach_id, status)
+                 VALUES (?, ?, ?, ?, ?, ?, ?)"
             );
+            $ins->bind_param("iississ", $batch_id, $day_of_week, $start_time, $end_time, $ground_id, $coach_id, $status);
 
-            if ($insert->execute()) {
+            if ($ins->execute()) {
                 header("Location: batch-schedule.php");
                 exit;
-            } else {
-                $message = "Error: " . $conn->error;
             }
+            $message = 'Database error.';
+            $ins->close();
         }
     }
 }
-
-// Day options
-$days_map = [
-    1 => "Monday",
-    2 => "Tuesday",
-    3 => "Wednesday",
-    4 => "Thursday",
-    5 => "Friday",
-    6 => "Saturday",
-    7 => "Sunday"
-];
 ?>
+
 <?php include "includes/header.php"; ?>
 <?php include "includes/sidebar.php"; ?>
 
 <h1>Add Batch Session</h1>
 
 <div class="form-card">
-    <?php if ($message): ?>
-        <p style="color:red; margin-bottom:10px;"><?php echo htmlspecialchars($message); ?></p>
+    <?php if ($message !== ''): ?>
+        <div class="alert-error"><?php echo htmlspecialchars($message); ?></div>
     <?php endif; ?>
 
     <form method="POST">
+        <?php echo Csrf::field(); ?>
 
         <div class="form-row">
             <label>Batch</label>
             <select name="batch_id" required>
                 <option value="">-- Select Batch --</option>
-                <?php if ($batches_res): ?>
-                    <?php while($b = $batches_res->fetch_assoc()): ?>
-                        <option value="<?php echo $b['id']; ?>">
-                            <?php echo htmlspecialchars($b['name'] . " (" . $b['age_group'] . ")"); ?>
-                        </option>
-                    <?php endwhile; ?>
-                <?php endif; ?>
+                <?php foreach ($batches as $b): ?>
+                    <option value="<?php echo (int)$b['id']; ?>">
+                        <?php echo htmlspecialchars($b['name'] . ' (' . $b['age_group'] . ')'); ?>
+                    </option>
+                <?php endforeach; ?>
             </select>
         </div>
 
@@ -124,8 +100,8 @@ $days_map = [
             <label>Day of Week</label>
             <select name="day_of_week" required>
                 <option value="">-- Select Day --</option>
-                <?php foreach ($days_map as $num => $label): ?>
-                    <option value="<?php echo $num; ?>"><?php echo $label; ?></option>
+                <?php foreach ($days as $k => $v): ?>
+                    <option value="<?php echo $k; ?>"><?php echo $v; ?></option>
                 <?php endforeach; ?>
             </select>
         </div>
@@ -144,13 +120,11 @@ $days_map = [
             <label>Ground</label>
             <select name="ground_id" required>
                 <option value="">-- Select Ground --</option>
-                <?php if ($grounds_res): ?>
-                    <?php while($g = $grounds_res->fetch_assoc()): ?>
-                        <option value="<?php echo $g['id']; ?>">
-                            <?php echo htmlspecialchars($g['name']); ?>
-                        </option>
-                    <?php endwhile; ?>
-                <?php endif; ?>
+                <?php foreach ($grounds as $g): ?>
+                    <option value="<?php echo (int)$g['id']; ?>">
+                        <?php echo htmlspecialchars($g['name']); ?>
+                    </option>
+                <?php endforeach; ?>
             </select>
         </div>
 
@@ -158,13 +132,11 @@ $days_map = [
             <label>Coach</label>
             <select name="coach_id" required>
                 <option value="">-- Select Coach --</option>
-                <?php if ($coaches_res): ?>
-                    <?php while($c = $coaches_res->fetch_assoc()): ?>
-                        <option value="<?php echo $c['id']; ?>">
-                            <?php echo htmlspecialchars($c['name']); ?>
-                        </option>
-                    <?php endwhile; ?>
-                <?php endif; ?>
+                <?php foreach ($coaches as $c): ?>
+                    <option value="<?php echo (int)$c['id']; ?>">
+                        <?php echo htmlspecialchars($c['name']); ?>
+                    </option>
+                <?php endforeach; ?>
             </select>
         </div>
 
@@ -178,16 +150,10 @@ $days_map = [
             </select>
         </div>
 
-        <button type="submit" class="button-primary">Save Session</button>
+        <button class="button-primary">Save Session</button>
     </form>
-
-    <p style="margin-top:10px; font-size:12px;">
-        Overlap protection: the system will block sessions where the same coach or ground is already booked on that day and time.
-    </p>
 </div>
 
-<p style="margin-top:12px;">
-    <a href="batch-schedule.php" class="text-link">⬅ Back to Schedule</a>
-</p>
+<p><a href="batch-schedule.php" class="text-link">⬅ Back</a></p>
 
 <?php include "includes/footer.php"; ?>

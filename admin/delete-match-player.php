@@ -1,23 +1,13 @@
 <?php
-include "../config.php";
-checkLogin();
+require_once __DIR__ . '/_bootstrap.php';
+AdminGuard::requireAnyRole(['admin','superadmin','coach']);
+Csrf::validateRequest();
 
-$role = currentUserRole();
-if (!in_array($role, ['admin','superadmin','coach'])) {
-    http_response_code(403);
-    echo "Access denied.";
-    exit;
-}
+$id = (int)($_POST['id'] ?? 0);
+$match = (int)($_POST['match_id'] ?? 0);
 
-if (!isset($_GET['id']) || !isset($_GET['match_id'])) {
-    die("Missing parameters.");
-}
-$mp_id    = intval($_GET['id']);
-$match_id = intval($_GET['match_id']);
+$conn->prepare("DELETE FROM match_players WHERE id=? AND match_id=?")
+      ->bind_param("ii",$id,$match)->execute();
 
-$del = $conn->prepare("DELETE FROM match_players WHERE id = ? AND match_id = ?");
-$del->bind_param("ii", $mp_id, $match_id);
-$del->execute();
-
-header("Location: manage-players.php?id=" . $match_id);
+header("Location: manage-players.php?id=".$match);
 exit;

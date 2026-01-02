@@ -1,148 +1,123 @@
 <?php
-include "../config.php";
-checkLogin();
+require_once __DIR__ . '/_bootstrap.php';
 
-$role = currentUserRole();
-if (!in_array($role, ['admin','superadmin'])) {
-    http_response_code(403);
-    echo "Access denied.";
-    exit;
-}
+AdminGuard::requirePermission(Permissions::ATTENDANCE_VIEW);
 
-$message = "";
-$success = "";
+$message = '';
+$success = '';
 
-// Fetch students & coaches for assignment
-$students_res = $conn->query("
-    SELECT id, admission_no, first_name, last_name
-    FROM students
-    WHERE status = 'active'
-    ORDER BY first_name ASC
-");
-$coaches_res = $conn->query("
-    SELECT id, coach_code, name
-    FROM coaches
-    WHERE status = 'active'
-    ORDER BY name ASC
-");
+$students = $conn->query(
+    "SELECT id, admission_no, first_name, last_name
+     FROM students WHERE status='active' ORDER BY first_name"
+);
+
+$coaches = $conn->query(
+    "SELECT id, coach_code, name
+     FROM coaches WHERE status='active' ORDER BY name"
+);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $card_number = trim($_POST['card_number']);
-    $uid         = trim($_POST['uid']);
-    $card_type   = $_POST['card_type'];
-    $owner_type  = $_POST['assigned_to_type'];
-    $owner_id    = intval($_POST['assigned_to_id']);
-    $issued_on   = $_POST['issued_on'] !== "" ? $_POST['issued_on'] : null;
-    $status      = $_POST['status'];
+    $card_number = trim($_POST['card_number'] ?? '');
+    $uid         = trim($_POST['uid'] ?? '');
+    $card_type   = $_POST['card_type'] ?? '';
+    $owner_type  = $_POST['assigned_to_type'] ?? '';
+    $owner_id    = (int)($_POST['assigned_to_id'] ?? 0);
+    $issued_on   = $_POST['issued_on'] ?: null;
+    $status      = $_POST['status'] ?? 'active';
 
-    if ($card_number === "" || $uid === "") {
-        $message = "Card number and UID are required.";
-    } elseif (!in_array($card_type, ['Student','Coach','Staff'])) {
-        $message = "Invalid card type.";
-    } elseif (!in_array($owner_type, ['student','coach'])) {
-        $message = "Invalid owner type.";
+    if ($card_number === '' || $uid === '') {
+        $message = 'Card number and UID are required.';
+    } elseif (!in_array($card_type, ['Student','Coach','Staff'], true)) {
+        $message = 'Invalid card type.';
+    } elseif (!in_array($owner_type, ['student','coach'], true)) {
+        $message = 'Invalid owner type.';
     } elseif ($owner_id <= 0) {
-        $message = "Please choose a valid owner.";
+        $message = 'Invalid owner.';
     } else {
-        // Insert new card
-        $sql = "
-            INSERT INTO cards (card_number, uid, card_type, assigned_to_type, assigned_to_id, issued_on, status)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-        ";
-        $stmt = $conn->prepare($sql);
-        $stmt->bind_param("ssssiss", $card_number, $uid, $card_type, $owner_type, $owner_id, $issued_on, $status);
+        $stmt = $conn->prepare(
+            "INSERT INTO cards
+            (card_number, uid, card_type, assigned_to_type, assigned_to_id, issued_on, status)
+            VALUES (?, ?, ?, ?, ?, ?, ?)"
+        );
+        $stmt->bind_param(
+            'ssssiss',
+            $card_number,
+            $uid,
+            $card_type,
+            $owner_type,
+            $owner_id,
+            $issued_on,
+            $status
+        );
 
         if ($stmt->execute()) {
-            $success = "Card added successfully.";
-            // Clear POST fields
-            $card_number = $uid = "";
+            $success = 'Card added successfully.';
         } else {
-            $message = "Database error: " . $conn->error;
+            $message = 'Database error.';
         }
+        $stmt->close();
     }
 }
 ?>
+
 <?php include "includes/header.php"; ?>
 <?php include "includes/sidebar.php"; ?>
 
 <h1>Add Card</h1>
 
 <div class="form-card">
-    <?php if ($message): ?>
-        <div class="alert-error"><?php echo htmlspecialchars($message); ?></div>
-    <?php endif; ?>
-    <?php if ($success): ?>
-        <div class="alert-success"><?php echo htmlspecialchars($success); ?></div>
-    <?php endif; ?>
+    <?php if ($message): ?><div class="alert-error"><?= htmlspecialchars($message) ?></div><?php endif; ?>
+    <?php if ($success): ?><div class="alert-success"><?= htmlspecialchars($success) ?></div><?php endif; ?>
 
     <form method="POST">
+        <?= Csrf::field(); ?>
+
         <div class="form-grid-2">
-            <div class="form-group">
+            <div>
                 <label>Card Number</label>
                 <input type="text" name="card_number" required>
             </div>
-            <div class="form-group">
-                <label>UID
-                    <span style="font-size:11px;color:#9ca3af;">
-                        (Tap card on reader or type manually)
-                    </span>
-                </label>
-                <input type="text" name="uid" id="uidField" required>
+            <div>
+                <label>UID</label>
+                <input type="text" name="uid" required autofocus>
             </div>
         </div>
 
         <div class="form-grid-2">
-            <div class="form-group">
+            <div>
                 <label>Card Type</label>
-                <select name="card_type" required>
-                    <option value="Student">Student</option>
-                    <option value="Coach">Coach</option>
-                    <option value="Staff">Staff</option>
+                <select name="card_type">
+                    <option>Student</option>
+                    <option>Coach</option>
+                    <option>Staff</option>
                 </select>
             </div>
-            <div class="form-group">
+            <div>
                 <label>Issued On</label>
                 <input type="date" name="issued_on">
             </div>
         </div>
 
         <div class="form-grid-2">
-            <div class="form-group">
-                <label>Assign To (Type)</label>
-                <select name="assigned_to_type" id="assigned_to_type" required>
+            <div>
+                <label>Assign To</label>
+                <select name="assigned_to_type" id="assignType">
                     <option value="student">Student</option>
                     <option value="coach">Coach</option>
                 </select>
             </div>
-            <div class="form-group" id="studentSelectWrap">
-                <label>Student</label>
-                <select name="assigned_to_id" id="studentSelect">
-                    <option value="">-- Select Student --</option>
-                    <?php if ($students_res): ?>
-                        <?php while ($s = $students_res->fetch_assoc()): ?>
-                            <option value="<?php echo $s['id']; ?>">
-                                <?php echo htmlspecialchars($s['admission_no'] . " - " . $s['first_name'] . " " . $s['last_name']); ?>
-                            </option>
-                        <?php endwhile; ?>
-                    <?php endif; ?>
-                </select>
-            </div>
-            <div class="form-group" id="coachSelectWrap" style="display:none;">
-                <label>Coach</label>
-                <select name="assigned_to_id" id="coachSelect">
-                    <option value="">-- Select Coach --</option>
-                    <?php if ($coaches_res): ?>
-                        <?php while ($c = $coaches_res->fetch_assoc()): ?>
-                            <option value="<?php echo $c['id']; ?>">
-                                <?php echo htmlspecialchars($c['coach_code'] . " - " . $c['name']); ?>
-                            </option>
-                        <?php endwhile; ?>
-                    <?php endif; ?>
+            <div>
+                <select name="assigned_to_id" id="assignTarget">
+                    <?php while ($s = $students->fetch_assoc()): ?>
+                        <option value="<?= $s['id'] ?>">
+                            <?= htmlspecialchars($s['admission_no'].' '.$s['first_name'].' '.$s['last_name']) ?>
+                        </option>
+                    <?php endwhile; ?>
                 </select>
             </div>
         </div>
 
-        <div class="form-group">
+        <div>
             <label>Status</label>
             <select name="status">
                 <option value="active">active</option>
@@ -150,37 +125,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </select>
         </div>
 
-        <button type="submit" class="button-primary">Save Card</button>
-        <a href="cards.php" class="button">Back to list</a>
+        <button class="button-primary">Save Card</button>
     </form>
 </div>
-
-<script>
-// Toggle student/coach select
-const typeSelect = document.getElementById('assigned_to_type');
-const studentWrap = document.getElementById('studentSelectWrap');
-const coachWrap = document.getElementById('coachSelectWrap');
-const studentSelect = document.getElementById('studentSelect');
-const coachSelect = document.getElementById('coachSelect');
-
-function updateOwnerSelect() {
-    if (typeSelect.value === 'student') {
-        studentWrap.style.display = '';
-        coachWrap.style.display = 'none';
-        coachSelect.name = 'x_ignore';
-        studentSelect.name = 'assigned_to_id';
-    } else {
-        studentWrap.style.display = 'none';
-        coachWrap.style.display = '';
-        studentSelect.name = 'x_ignore';
-        coachSelect.name = 'assigned_to_id';
-    }
-}
-typeSelect.addEventListener('change', updateOwnerSelect);
-updateOwnerSelect();
-
-// Auto-focus UID field for scanner input
-document.getElementById('uidField').focus();
-</script>
 
 <?php include "includes/footer.php"; ?>

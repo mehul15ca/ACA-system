@@ -47,7 +47,7 @@ final class JWT
     }
 
     /* ---------------------------------------------
-     | Internal helpers (PRIVATE)
+     | Internal helpers
      --------------------------------------------- */
 
     private static function encode(array $payload): string
@@ -58,8 +58,8 @@ final class JWT
         $payload['exp'] = time() + self::TTL;
 
         $segments = [];
-        $segments[] = self::base64UrlEncode(json_encode($header));
-        $segments[] = self::base64UrlEncode(json_encode($payload));
+        $segments[] = self::base64UrlEncode(json_encode($header, JSON_UNESCAPED_SLASHES));
+        $segments[] = self::base64UrlEncode(json_encode($payload, JSON_UNESCAPED_SLASHES));
 
         $signingInput = implode('.', $segments);
         $signature = hash_hmac(
@@ -96,6 +96,10 @@ final class JWT
 
     private static function base64UrlDecode(string $data): string
     {
+        $pad = strlen($data) % 4;
+        if ($pad) {
+            $data .= str_repeat('=', 4 - $pad);
+        }
         return base64_decode(strtr($data, '-_', '+/'));
     }
 }

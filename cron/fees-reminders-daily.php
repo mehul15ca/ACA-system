@@ -1,4 +1,9 @@
 <?php
+if (php_sapi_name() !== 'cli') {
+    http_response_code(403);
+    exit;
+}
+
 require __DIR__ . '/../includes/cron_guard.php';
 // Daily fees reminders processor
 // Run via: http://localhost/ACA-System/cron/fees-reminders-daily.php (or your domain)

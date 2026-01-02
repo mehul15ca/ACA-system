@@ -1,38 +1,36 @@
 <?php
-include "../config.php";
-checkLogin();
+require_once __DIR__ . '/_bootstrap.php';
 
-$role = currentUserRole();
-if (!in_array($role, ['admin','superadmin'])) {
-    http_response_code(403);
-    echo "Access denied. Admin/Superadmin only.";
-    exit;
-}
+AdminGuard::requirePermission(Permissions::MATCHES_MANAGE);
 
-$message = "";
+$message = '';
 
-// Fetch academy grounds for dropdown
-$grounds_res = $conn->query("SELECT id, name FROM grounds WHERE status = 'active' ORDER BY name ASC");
+// Load active grounds once
+$grounds = $conn->query(
+    "SELECT id, name FROM grounds WHERE status='active' ORDER BY name ASC"
+);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $opponent   = trim($_POST['opponent']);
-    $match_date = $_POST['match_date'];
-    $match_time = $_POST['match_time'] !== '' ? $_POST['match_time'] : null;
-    $ground_id  = isset($_POST['ground_id']) && $_POST['ground_id'] !== '' ? intval($_POST['ground_id']) : null;
-    $venue_text = trim($_POST['venue_text']);
-    $status     = $_POST['status'];
-    $notes      = trim($_POST['notes']);
+    $opponent   = trim($_POST['opponent'] ?? '');
+    $match_date = $_POST['match_date'] ?? '';
+    $match_time = $_POST['match_time'] ?: null;
+    $ground_id  = ($_POST['ground_id'] ?? '') !== '' ? (int)$_POST['ground_id'] : null;
+    $venue_text = trim($_POST['venue_text'] ?? '');
+    $status     = $_POST['status'] ?? 'upcoming';
+    $notes      = trim($_POST['notes'] ?? '');
 
     if ($opponent === '' || $match_date === '') {
-        $message = "Opponent and date are required.";
+        $message = 'Opponent and date are required.';
+    } elseif (!in_array($status, ['upcoming','ongoing','completed','cancelled'], true)) {
+        $message = 'Invalid status.';
     } else {
-        $sql = "
-            INSERT INTO matches (opponent, match_date, match_time, ground_id, venue_text, status, notes)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-        ";
-        $stmt = $conn->prepare($sql);
+        $stmt = $conn->prepare(
+            "INSERT INTO matches
+             (opponent, match_date, match_time, ground_id, venue_text, status, notes)
+             VALUES (?, ?, ?, ?, ?, ?, ?)"
+        );
         $stmt->bind_param(
-            "sssisss",
+            'sssisss',
             $opponent,
             $match_date,
             $match_time,
@@ -43,14 +41,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         );
 
         if ($stmt->execute()) {
-            header("Location: matches.php");
+            header('Location: matches.php');
             exit;
-        } else {
-            $message = "Error inserting match: " . $conn->error;
         }
+        $message = 'Database error.';
+        $stmt->close();
     }
 }
 ?>
+
 <?php include "includes/header.php"; ?>
 <?php include "includes/sidebar.php"; ?>
 
@@ -58,10 +57,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 <div class="form-card">
     <?php if ($message): ?>
-        <p style="color:red; margin-bottom:10px;"><?php echo htmlspecialchars($message); ?></p>
+        <div class="alert-error"><?php echo htmlspecialchars($message); ?></div>
     <?php endif; ?>
 
     <form method="POST">
+        <?= Csrf::field(); ?>
+
         <div class="form-row">
             <label>Opponent</label>
             <input type="text" name="opponent" required>
@@ -81,22 +82,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <label>Academy Ground (optional)</label>
             <select name="ground_id">
                 <option value="">-- Select Ground --</option>
-                <?php if ($grounds_res): ?>
-                    <?php while ($g = $grounds_res->fetch_assoc()): ?>
-                        <option value="<?php echo $g['id']; ?>">
-                            <?php echo htmlspecialchars($g['name']); ?>
-                        </option>
-                    <?php endwhile; ?>
-                <?php endif; ?>
+                <?php if ($grounds): while ($g = $grounds->fetch_assoc()): ?>
+                    <option value="<?php echo (int)$g['id']; ?>">
+                        <?php echo htmlspecialchars($g['name']); ?>
+                    </option>
+                <?php endwhile; endif; ?>
             </select>
-            <p style="font-size:11px; margin-top:4px;">
-                If match is at an academy ground, select it here. You can still type a custom venue below.
-            </p>
         </div>
 
         <div class="form-row">
             <label>Venue Text (custom)</label>
-            <input type="text" name="venue_text" placeholder="e.g. Maple Leaf Cricket Club, Brampton">
+            <input type="text" name="venue_text"
+                   placeholder="e.g. Maple Leaf Cricket Club, Brampton">
         </div>
 
         <div class="form-row">
@@ -107,22 +104,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <option value="completed">completed</option>
                 <option value="cancelled">cancelled</option>
             </select>
-            <p style="font-size:11px; margin-top:4px;">
-                Status will automatically move between upcoming / ongoing / completed based on date. Cancelled stays as is.
-            </p>
         </div>
 
         <div class="form-row">
             <label>Notes</label>
-            <textarea name="notes" rows="4" placeholder="Optional notes (format, overs, special rules, etc.)"></textarea>
+            <textarea name="notes" rows="4"></textarea>
         </div>
 
-        <button type="submit" class="button-primary">Save Match</button>
+        <button class="button-primary">Save Match</button>
     </form>
 </div>
 
-<p style="margin-top:12px;">
-    <a href="matches.php" class="text-link">⬅ Back to Matches</a>
-</p>
+<p><a href="matches.php" class="text-link">⬅ Back to Matches</a></p>
 
 <?php include "includes/footer.php"; ?>

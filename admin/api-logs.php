@@ -1,7 +1,9 @@
 <?php
-include "../config.php";
-checkLogin();
+require_once __DIR__ . '/_bootstrap.php';
+
+AdminGuard::requirePermission(Permissions::API_LOGS_VIEW);
 ?>
+
 <?php include "includes/header.php"; ?>
 <?php include "includes/sidebar.php"; ?>
 
@@ -9,7 +11,7 @@ checkLogin();
 
 <div class="table-card">
     <p>This is a placeholder page for the <strong>API Logs</strong> module.</p>
-    <p>It is loading correctly and ready for backend logic to be added later.</p>
+    <p>It is secured and ready for backend logic.</p>
 </div>
 
 <?php include "includes/footer.php"; ?>

@@ -11,7 +11,6 @@ if (!in_array($role, ['admin','superadmin','coach','student'])) {
 
 $id = isset($_GET['id']) ? intval($_GET['id']) : 0;
 $print = isset($_GET['print']) && $_GET['print'] == '1';
-
 if ($id <= 0) die("Invalid evaluation ID.");
 
 $sql = "
@@ -31,14 +30,16 @@ $stmt->execute();
 $ev = $stmt->get_result()->fetch_assoc();
 if (!$ev) die("Evaluation not found.");
 
-// Student visibility: if logged in as student, ensure this is THEIR evaluation
+// Student visibility check
 if ($role === 'student') {
     if (session_status() === PHP_SESSION_NONE) session_start();
     $userId = isset($_SESSION['user_id']) ? intval($_SESSION['user_id']) : 0;
+
     $stmtU = $conn->prepare("SELECT student_id FROM users WHERE id = ?");
     $stmtU->bind_param("i", $userId);
     $stmtU->execute();
     $u = $stmtU->get_result()->fetch_assoc();
+
     if (!$u || intval($u['student_id']) !== intval($ev['student_id'])) {
         http_response_code(403);
         echo "Access denied.";
@@ -79,39 +80,29 @@ if ($print):
     <div class="meta">
         Student: <?php echo htmlspecialchars($ev['s_first'] . " " . $ev['s_last']); ?>
         (<?php echo htmlspecialchars($ev['admission_no']); ?>)<br>
-        Coach: <?php echo htmlspecialchars($ev['coach_name']); ?><br>
+        Coach: <?php echo htmlspecialchars($ev['coach_name'] ?? ''); ?><br>
         Evaluation Time: <?php echo htmlspecialchars($ev['eval_time']); ?><br>
         Status: <?php echo htmlspecialchars($ev['status']); ?><br>
-        Overall Score: <?php echo $ev['overall_score'] !== null ? number_format($ev['overall_score'], 2) : '-'; ?>
+        Overall Score: <?php echo $ev['overall_score'] !== null ? number_format((float)$ev['overall_score'], 2) : '-'; ?>
     </div>
 
     <h2>Category Ratings (1–10)</h2>
     <table>
         <thead>
-            <tr>
-                <th>Category</th>
-                <th>Rating</th>
-            </tr>
+            <tr><th>Category</th><th>Rating</th></tr>
         </thead>
         <tbody>
         <?php foreach ($cats as $field => $label): ?>
             <tr>
                 <td><?php echo htmlspecialchars($label); ?></td>
-                <td>
-                    <?php
-                    $val = $ev[$field];
-                    echo ($val !== null ? intval($val) : '-');
-                    ?>
-                </td>
+                <td><?php echo ($ev[$field] !== null ? intval($ev[$field]) : '-'); ?></td>
             </tr>
         <?php endforeach; ?>
         </tbody>
     </table>
 
     <h2>Coach Notes</h2>
-    <div class="notes">
-        <?php echo nl2br(htmlspecialchars($ev['notes'])); ?>
-    </div>
+    <div class="notes"><?php echo nl2br(htmlspecialchars($ev['notes'] ?? '')); ?></div>
 </body>
 </html>
 <?php
@@ -128,16 +119,16 @@ endif;
     <p style="font-size:13px;color:#6b7280;line-height:1.6;">
         Student: <strong><?php echo htmlspecialchars($ev['s_first'] . " " . $ev['s_last']); ?></strong>
         (<?php echo htmlspecialchars($ev['admission_no']); ?>)<br>
-        Coach: <?php echo htmlspecialchars($ev['coach_name']); ?><br>
+        Coach: <?php echo htmlspecialchars($ev['coach_name'] ?? ''); ?><br>
         Evaluation Time: <?php echo htmlspecialchars($ev['eval_time']); ?><br>
         Status: <strong><?php echo htmlspecialchars($ev['status']); ?></strong><br>
-        Overall Score: <?php echo $ev['overall_score'] !== null ? number_format($ev['overall_score'], 2) : '-'; ?>
+        Overall Score: <?php echo $ev['overall_score'] !== null ? number_format((float)$ev['overall_score'], 2) : '-'; ?>
     </p>
 
     <div style="margin-top:8px;">
-        <a href="evaluation-view.php?id=<?php echo $ev['id']; ?>&print=1" class="button" target="_blank">🧾 Print / PDF</a>
+        <a href="evaluation-view.php?id=<?php echo (int)$ev['id']; ?>&print=1" class="button" target="_blank">🧾 Print / PDF</a>
         <?php if (in_array($role, ['admin','superadmin','coach'])): ?>
-            <a href="evaluation-edit.php?id=<?php echo $ev['id']; ?>" class="button">Edit</a>
+            <a href="evaluation-edit.php?id=<?php echo (int)$ev['id']; ?>" class="button">Edit</a>
         <?php endif; ?>
         <a href="evaluations.php" class="button">Back to list</a>
     </div>
@@ -148,22 +139,12 @@ endif;
         <h2>Category Ratings (1–10)</h2>
     </div>
     <table class="acatable">
-        <thead>
-            <tr>
-                <th>Category</th>
-                <th>Rating</th>
-            </tr>
-        </thead>
+        <thead><tr><th>Category</th><th>Rating</th></tr></thead>
         <tbody>
         <?php foreach ($cats as $field => $label): ?>
             <tr>
                 <td><?php echo htmlspecialchars($label); ?></td>
-                <td>
-                    <?php
-                    $val = $ev[$field];
-                    echo ($val !== null ? intval($val) : '-');
-                    ?>
-                </td>
+                <td><?php echo ($ev[$field] !== null ? intval($ev[$field]) : '-'); ?></td>
             </tr>
         <?php endforeach; ?>
         </tbody>
@@ -172,7 +153,7 @@ endif;
 
 <div class="form-card">
     <h2 style="font-size:16px;margin-bottom:6px;">Coach Notes</h2>
-    <p style="white-space:pre-wrap;font-size:13px;"><?php echo htmlspecialchars($ev['notes']); ?></p>
+    <p style="white-space:pre-wrap;font-size:13px;"><?php echo htmlspecialchars($ev['notes'] ?? ''); ?></p>
 </div>
 
 <?php include "includes/footer.php"; ?>

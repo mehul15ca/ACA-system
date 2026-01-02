@@ -1,160 +1,134 @@
 <?php
-include "../config.php";
-checkLogin();
+require_once __DIR__ . '/_bootstrap.php';
 
-$role = currentUserRole();
-if (!in_array($role, ['admin','superadmin'])) {
-    http_response_code(403);
-    echo "Access denied.";
-    exit;
-}
+AdminGuard::requirePermission(Permissions::ANNOUNCEMENTS_MANAGE);
 
-$message = "";
-$success = "";
+$message = '';
+$success = '';
 
-$batches_res = $conn->query("SELECT id, name FROM batches WHERE status='active' ORDER BY name ASC");
-$grounds_res = $conn->query("SELECT id, name FROM grounds WHERE status='active' ORDER BY name ASC");
+// Dropdown data
+$batches = [];
+$grounds = [];
 
-function queueAnnouncementEmails($conn, $announcementId, $scope, $audience, $batch_id, $ground_id, $title, $body) {
-    $subject = mb_substr($title, 0, 150);
-    $message = $body;
+$r = $conn->query("SELECT id, name FROM batches WHERE status='active' ORDER BY name ASC");
+while ($row = $r->fetch_assoc()) { $batches[] = $row; }
+
+$r = $conn->query("SELECT id, name FROM grounds WHERE status='active' ORDER BY name ASC");
+while ($row = $r->fetch_assoc()) { $grounds[] = $row; }
+
+function queueAnnouncementEmails(mysqli $conn, string $scope, ?int $batch_id, ?int $ground_id, string $title, string $body): int
+{
+    $subject  = mb_substr($title, 0, 150);
     $template = "ANNOUNCEMENT";
     $channel  = "email";
 
     $emails = [];
 
     if ($scope === 'all') {
-        // all students
-        $res = $conn->query("SELECT DISTINCT email FROM students WHERE email <> '' AND status='active'");
-        if ($res) {
-            while ($r = $res->fetch_assoc()) {
-                $emails[] = $r['email'];
-            }
-        }
-        // all coaches
-        $res2 = $conn->query("SELECT DISTINCT email FROM coaches WHERE email <> '' AND status='active'");
-        if ($res2) {
-            while ($r = $res2->fetch_assoc()) {
-                $emails[] = $r['email'];
-            }
-        }
-    } elseif ($scope === 'students' || ($scope === 'batch_students') || ($scope === 'ground_students')) {
-        if ($scope === 'students') {
-            $sql = "SELECT DISTINCT email FROM students WHERE email <> '' AND status='active'";
-            $res = $conn->query($sql);
-        } elseif ($scope === 'batch_students' && $batch_id > 0) {
-            $stmt = $conn->prepare("SELECT DISTINCT email FROM students WHERE email <> '' AND status='active' AND batch_id = ?");
-            $stmt->bind_param("i", $batch_id);
-            $stmt->execute();
-            $res = $stmt->get_result();
-        } elseif ($scope === 'ground_students' && $ground_id > 0) {
-            $stmt = $conn->prepare("
-                SELECT DISTINCT s.email
-                FROM students s
-                JOIN batch_schedule bs ON s.batch_id = bs.batch_id
-                WHERE s.email <> '' AND s.status='active' AND bs.ground_id = ?
-            ");
-            $stmt->bind_param("i", $ground_id);
-            $stmt->execute();
-            $res = $stmt->get_result();
-        } else {
-            $res = false;
-        }
+        $res = $conn->query("SELECT DISTINCT email FROM students WHERE status='active' AND email<>''");
+        while ($res && ($r = $res->fetch_assoc())) { $emails[] = $r['email']; }
 
-        if ($res) {
-            while ($r = $res->fetch_assoc()) {
-                $emails[] = $r['email'];
-            }
-        }
+        $res = $conn->query("SELECT DISTINCT email FROM coaches WHERE status='active' AND email<>''");
+        while ($res && ($r = $res->fetch_assoc())) { $emails[] = $r['email']; }
+
+    } elseif ($scope === 'students') {
+        $res = $conn->query("SELECT DISTINCT email FROM students WHERE status='active' AND email<>''");
+        while ($res && ($r = $res->fetch_assoc())) { $emails[] = $r['email']; }
+
     } elseif ($scope === 'coaches') {
-        $res = $conn->query("SELECT DISTINCT email FROM coaches WHERE email <> '' AND status='active'");
-        if ($res) {
-            while ($r = $res->fetch_assoc()) {
-                $emails[] = $r['email'];
-            }
-        }
+        $res = $conn->query("SELECT DISTINCT email FROM coaches WHERE status='active' AND email<>''");
+        while ($res && ($r = $res->fetch_assoc())) { $emails[] = $r['email']; }
+
+    } elseif ($scope === 'batch_students' && $batch_id && $batch_id > 0) {
+        $stmt = $conn->prepare("SELECT DISTINCT email FROM students WHERE status='active' AND email<>'' AND batch_id=?");
+        $stmt->bind_param("i", $batch_id);
+        $stmt->execute();
+        $res = $stmt->get_result();
+        while ($res && ($r = $res->fetch_assoc())) { $emails[] = $r['email']; }
+        $stmt->close();
+
+    } elseif ($scope === 'ground_students' && $ground_id && $ground_id > 0) {
+        $stmt = $conn->prepare(
+            "SELECT DISTINCT s.email
+             FROM students s
+             JOIN batch_schedule bs ON bs.batch_id = s.batch_id
+             WHERE s.status='active' AND s.email<>'' AND bs.ground_id=?"
+        );
+        $stmt->bind_param("i", $ground_id);
+        $stmt->execute();
+        $res = $stmt->get_result();
+        while ($res && ($r = $res->fetch_assoc())) { $emails[] = $r['email']; }
+        $stmt->close();
     }
 
-    $emails = array_unique(array_filter($emails));
+    $emails = array_values(array_unique(array_filter($emails)));
+    if (!$emails) return 0;
 
-    if (empty($emails)) {
-        return;
-    }
+    $ins = $conn->prepare(
+        "INSERT INTO notifications_queue
+         (receiver_email, channel, subject, message, status, template_code)
+         VALUES (?, ?, ?, ?, 'pending', ?)"
+    );
 
-    $stmtIns = $conn->prepare("
-        INSERT INTO notifications_queue
-            (receiver_email, channel, subject, message, status, template_code)
-        VALUES (?, ?, ?, ?, 'pending', ?)
-    ");
-
+    $queued = 0;
     foreach ($emails as $em) {
-        $stmtIns->bind_param("sssss", $em, $channel, $subject, $message, $template);
-        $stmtIns->execute();
+        $ins->bind_param("sssss", $em, $channel, $subject, $body, $template);
+        if ($ins->execute()) $queued++;
     }
+    $ins->close();
+
+    return $queued;
 }
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $title   = trim($_POST['title']);
-    $body    = trim($_POST['body']);
-    $scope   = $_POST['scope'] ?? 'all';
-    $batchId = isset($_POST['batch_id']) ? intval($_POST['batch_id']) : 0;
-    $groundId= isset($_POST['ground_id']) ? intval($_POST['ground_id']) : 0;
+$title = '';
+$body  = '';
+$scope = 'all';
 
-    if ($title === '') {
-        $message = "Title is required.";
-    } elseif ($body === '') {
-        $message = "Message body is required.";
-    } else {
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $title   = trim($_POST['title'] ?? '');
+    $body    = trim($_POST['body'] ?? '');
+    $scope   = $_POST['scope'] ?? 'all';
+    $batchId = (int)($_POST['batch_id'] ?? 0);
+    $groundId= (int)($_POST['ground_id'] ?? 0);
+
+    if ($title === '') $message = "Title is required.";
+    elseif ($body === '') $message = "Message body is required.";
+    elseif (!in_array($scope, ['all','students','coaches','batch_students','ground_students'], true)) $message = "Invalid scope.";
+    else {
         $audience = 'all';
         $batch_id = null;
         $ground_id = null;
 
-        if ($scope === 'students') {
-            $audience = 'students';
-        } elseif ($scope === 'coaches') {
-            $audience = 'coaches';
-        } elseif ($scope === 'batch_students') {
-            $audience = 'students';
-            if ($batchId > 0) $batch_id = $batchId;
-        } elseif ($scope === 'ground_students') {
-            $audience = 'students';
-            if ($groundId > 0) $ground_id = $groundId;
-        } else { // all
-            $audience = 'all';
-        }
+        if ($scope === 'students') $audience = 'students';
+        elseif ($scope === 'coaches') $audience = 'coaches';
+        elseif ($scope === 'batch_students') { $audience = 'students'; $batch_id = $batchId > 0 ? $batchId : null; }
+        elseif ($scope === 'ground_students') { $audience = 'students'; $ground_id = $groundId > 0 ? $groundId : null; }
 
         $status = 'active';
 
-        $sql = "
-            INSERT INTO announcements (title, body, audience, status, batch_id, ground_id, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, NOW())
-        ";
-        $stmt = $conn->prepare($sql);
-        $stmt->bind_param(
-            "ssssii",
-            $title,
-            $body,
-            $audience,
-            $status,
-            $batch_id,
-            $ground_id
+        $stmt = $conn->prepare(
+            "INSERT INTO announcements (title, body, audience, status, batch_id, ground_id, created_at)
+             VALUES (?, ?, ?, ?, ?, ?, NOW())"
         );
+        $stmt->bind_param("ssssii", $title, $body, $audience, $status, $batch_id, $ground_id);
 
         if ($stmt->execute()) {
-            $announcementId = $stmt->insert_id;
+            $stmt->close();
 
-            // Queue emails into notifications_queue (email only)
-            queueAnnouncementEmails($conn, $announcementId, $scope, $audience, $batch_id, $ground_id, $title, $body);
+            $queued = queueAnnouncementEmails($conn, $scope, $batch_id, $ground_id, $title, $body);
 
-            $success = "Announcement created and email notifications queued.";
-            $title = "";
-            $body = "";
+            $success = "Announcement created. Email queue: {$queued} recipient(s).";
+            $title = '';
+            $body = '';
+            $scope = 'all';
         } else {
-            $message = "Database error: " . $conn->error;
+            $message = "Database error.";
+            $stmt->close();
         }
     }
 }
 ?>
+
 <?php include "includes/header.php"; ?>
 <?php include "includes/sidebar.php"; ?>
 
@@ -165,30 +139,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <?php if ($success): ?><div class="alert-success"><?php echo htmlspecialchars($success); ?></div><?php endif; ?>
 
     <form method="POST">
+        <?php echo Csrf::field(); ?>
+
         <div class="form-group">
             <label>Title</label>
-            <input type="text" name="title"
-                   value="<?php echo isset($title) ? htmlspecialchars($title) : ''; ?>"
-                   required>
+            <input type="text" name="title" value="<?php echo htmlspecialchars($title); ?>" required>
         </div>
 
         <div class="form-group">
             <label>Message</label>
-            <textarea name="body" rows="6" required><?php echo isset($body) ? htmlspecialchars($body) : ''; ?></textarea>
+            <textarea name="body" rows="6" required><?php echo htmlspecialchars($body); ?></textarea>
         </div>
 
         <div class="form-group">
             <label>Audience / Scope</label>
             <select name="scope" id="scope-select" onchange="toggleScopeFields()">
-                <option value="all">All students + coaches</option>
-                <option value="students">All students</option>
-                <option value="coaches">All coaches</option>
-                <option value="batch_students">Students of a specific batch</option>
-                <option value="ground_students">Students of a specific ground</option>
+                <option value="all"<?php if ($scope==='all') echo ' selected'; ?>>All students + coaches</option>
+                <option value="students"<?php if ($scope==='students') echo ' selected'; ?>>All students</option>
+                <option value="coaches"<?php if ($scope==='coaches') echo ' selected'; ?>>All coaches</option>
+                <option value="batch_students"<?php if ($scope==='batch_students') echo ' selected'; ?>>Students of a specific batch</option>
+                <option value="ground_students"<?php if ($scope==='ground_students') echo ' selected'; ?>>Students of a specific ground</option>
             </select>
-            <p style="font-size:11px;color:#9ca3af;margin-top:4px;">
-                Email notifications will be queued automatically for the selected group.
-            </p>
         </div>
 
         <div class="form-grid-2">
@@ -196,47 +167,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <label>Batch</label>
                 <select name="batch_id">
                     <option value="0">-- Select Batch --</option>
-                    <?php if ($batches_res): ?>
-                        <?php while ($b = $batches_res->fetch_assoc()): ?>
-                            <option value="<?php echo $b['id']; ?>">
-                                <?php echo htmlspecialchars($b['name']); ?>
-                            </option>
-                        <?php endwhile; ?>
-                    <?php endif; ?>
+                    <?php foreach ($batches as $b): ?>
+                        <option value="<?php echo (int)$b['id']; ?>">
+                            <?php echo htmlspecialchars($b['name']); ?>
+                        </option>
+                    <?php endforeach; ?>
                 </select>
             </div>
+
             <div class="form-group" id="ground-field" style="display:none;">
                 <label>Ground</label>
                 <select name="ground_id">
                     <option value="0">-- Select Ground --</option>
-                    <?php if ($grounds_res): ?>
-                        <?php while ($g = $grounds_res->fetch_assoc()): ?>
-                            <option value="<?php echo $g['id']; ?>">
-                                <?php echo htmlspecialchars($g['name']); ?>
-                            </option>
-                        <?php endwhile; ?>
-                    <?php endif; ?>
+                    <?php foreach ($grounds as $g): ?>
+                        <option value="<?php echo (int)$g['id']; ?>">
+                            <?php echo htmlspecialchars($g['name']); ?>
+                        </option>
+                    <?php endforeach; ?>
                 </select>
             </div>
         </div>
 
-        <button type="submit" class="button-primary">Create Announcement</button>
+        <button class="button-primary">Create Announcement</button>
         <a href="announcements.php" class="button">Back to list</a>
     </form>
 </div>
 
 <script>
-function toggleScopeFields() {
-    var scope = document.getElementById('scope-select').value;
-    var bf = document.getElementById('batch-field');
-    var gf = document.getElementById('ground-field');
-    bf.style.display = 'none';
-    gf.style.display = 'none';
-    if (scope === 'batch_students') {
-        bf.style.display = 'block';
-    } else if (scope === 'ground_students') {
-        gf.style.display = 'block';
-    }
+function toggleScopeFields(){
+  var v = document.getElementById('scope-select').value;
+  var bf = document.getElementById('batch-field');
+  var gf = document.getElementById('ground-field');
+  bf.style.display = 'none';
+  gf.style.display = 'none';
+  if (v === 'batch_students') bf.style.display = 'block';
+  if (v === 'ground_students') gf.style.display = 'block';
 }
 document.addEventListener('DOMContentLoaded', toggleScopeFields);
 </script>

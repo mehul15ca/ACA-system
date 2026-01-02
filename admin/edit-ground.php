@@ -9,9 +9,9 @@ if (!in_array($role, ['admin','superadmin'])) {
     exit;
 }
 
-if (!isset($_GET['id'])) {
-    die("Ground ID missing.");
-}
+csrfInit();
+
+if (!isset($_GET['id'])) die("Ground ID missing.");
 $ground_id = intval($_GET['id']);
 $message = "";
 
@@ -20,28 +20,35 @@ $stmt = $conn->prepare("SELECT * FROM grounds WHERE id = ?");
 $stmt->bind_param("i", $ground_id);
 $stmt->execute();
 $res = $stmt->get_result();
-if ($res->num_rows === 0) {
-    die("Ground not found.");
-}
+if ($res->num_rows === 0) die("Ground not found.");
 $ground = $res->fetch_assoc();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $name     = trim($_POST['name']);
-    $code     = trim($_POST['code']);
-    $address  = trim($_POST['address']);
-    $city     = trim($_POST['city']);
-    $province = trim($_POST['province']);
-    $country  = trim($_POST['country']);
-    $password = trim($_POST['password']);
+    verifyCsrf();
+
+    $name     = trim($_POST['name'] ?? '');
+    $code     = trim($_POST['code'] ?? '');
+    $address  = trim($_POST['address'] ?? '');
+    $city     = trim($_POST['city'] ?? '');
+    $province = trim($_POST['province'] ?? '');
+    $country  = trim($_POST['country'] ?? '');
+    $password = trim($_POST['password'] ?? ''); // plain input
     $indoor   = isset($_POST['indoor']) ? 1 : 0;
-    $status   = $_POST['status'];
+    $status   = $_POST['status'] ?? 'active';
 
     if ($name === "") {
         $message = "Name is required.";
     } else {
+        // Hash password ONLY if user entered a new one, otherwise keep existing hash
+        $pwd_sql = $ground['password'];
+        if ($password !== '') {
+            $pwd_sql = password_hash($password, PASSWORD_DEFAULT);
+        }
+
         $up = $conn->prepare("
             UPDATE grounds
-            SET name = ?, code = ?, address = ?, city = ?, province = ?, country = ?, password = ?, indoor = ?, status = ?
+            SET name = ?, code = ?, address = ?, city = ?, province = ?, country = ?,
+                password = ?, indoor = ?, status = ?
             WHERE id = ?
         ");
         $up->bind_param(
@@ -52,7 +59,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $city,
             $province,
             $country,
-            $password,
+            $pwd_sql,
             $indoor,
             $status,
             $ground_id
@@ -60,18 +67,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if ($up->execute()) {
             $message = "Ground updated successfully.";
-            // refresh array
+            // refresh view state (do not store plaintext)
             $ground['name']     = $name;
             $ground['code']     = $code;
             $ground['address']  = $address;
             $ground['city']     = $city;
             $ground['province'] = $province;
             $ground['country']  = $country;
-            $ground['password'] = $password;
+            $ground['password'] = $pwd_sql;
             $ground['indoor']   = $indoor;
             $ground['status']   = $status;
         } else {
-            $message = "Error: " . $conn->error;
+            $message = "Error: " . $up->error;
         }
     }
 }
@@ -87,6 +94,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <?php endif; ?>
 
     <form method="POST">
+        <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(csrfToken()); ?>">
+
         <div class="form-row">
             <label>Ground Name</label>
             <input type="text" name="name" value="<?php echo htmlspecialchars($ground['name']); ?>" required>
@@ -119,7 +128,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         <div class="form-row">
             <label>Attendance Login Password</label>
-            <input type="text" name="password" value="<?php echo htmlspecialchars($ground['password']); ?>">
+            <input type="text" name="password" value="" placeholder="Leave blank to keep current password">
+            <small style="color:#6b7280;">Password is stored securely (hashed). Leaving blank keeps the current one.</small>
         </div>
 
         <div class="form-row">

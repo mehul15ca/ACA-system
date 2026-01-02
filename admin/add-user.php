@@ -1,37 +1,35 @@
 <?php
-include "../config.php";
-checkLogin();
-requireSuperadmin();
+require_once __DIR__ . '/_bootstrap.php';
 
-$message = "";
-$temp_password = "";
+AdminGuard::requireRole(['superadmin']);
+
+$message = '';
+
+$coaches = $conn->query("SELECT id, name FROM coaches ORDER BY name ASC");
+$students = $conn->query("SELECT id, first_name, last_name FROM students ORDER BY first_name ASC");
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $username   = trim($_POST['username']);
-    $role       = $_POST['role'];
-    $status     = $_POST['status'];
-    $coach_id   = !empty($_POST['coach_id']) ? intval($_POST['coach_id']) : null;
-    $student_id = !empty($_POST['student_id']) ? intval($_POST['student_id']) : null;
+    $username   = trim($_POST['username'] ?? '');
+    $role       = $_POST['role'] ?? '';
+    $status     = $_POST['status'] ?? 'active';
+    $coach_id   = !empty($_POST['coach_id']) ? (int)$_POST['coach_id'] : null;
+    $student_id = !empty($_POST['student_id']) ? (int)$_POST['student_id'] : null;
 
-    if ($username === "") {
-        $message = "Username is required.";
+    if ($username === '') {
+        $message = 'Username required.';
+    } elseif (!in_array($role, ['admin','coach','student'], true)) {
+        $message = 'Invalid role.';
     } else {
-        try {
-            $temp_password = bin2hex(random_bytes(8)); // 16 chars
-        } catch (Throwable $e) {
-            http_response_code(500);
-            exit("Password generation failed. Please retry.");
-        }
+        $temp = bin2hex(random_bytes(8));
+        $hash = password_hash($temp, PASSWORD_DEFAULT);
 
-        $hash = password_hash($temp_password, PASSWORD_DEFAULT);
-
-        $stmt = $conn->prepare("
-            INSERT INTO users
-              (username, password_hash, role, coach_id, student_id, status, must_change_password)
-            VALUES (?, ?, ?, ?, ?, ?, 1)
-        ");
+        $stmt = $conn->prepare(
+            "INSERT INTO users
+             (username, password_hash, role, coach_id, student_id, status, must_change_password)
+             VALUES (?, ?, ?, ?, ?, ?, 1)"
+        );
         $stmt->bind_param(
-            "sssiss",
+            'sssiss',
             $username,
             $hash,
             $role,
@@ -41,17 +39,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         );
 
         if ($stmt->execute()) {
-            $message = "User created successfully. Temporary password: " . htmlspecialchars($temp_password);
+            $message = 'User created. Temp password: ' . htmlspecialchars($temp);
         } else {
-            $message = "Error: " . $conn->error;
+            $message = 'Database error.';
         }
+        $stmt->close();
     }
 }
-
-// Fetch coaches and students
-$coaches = $conn->query("SELECT id, coach_code, name FROM coaches ORDER BY name ASC");
-$students = $conn->query("SELECT id, admission_no, first_name, last_name FROM students ORDER BY first_name ASC");
 ?>
+
 <?php include "includes/header.php"; ?>
 <?php include "includes/sidebar.php"; ?>
 
@@ -59,69 +55,45 @@ $students = $conn->query("SELECT id, admission_no, first_name, last_name FROM st
 
 <div class="form-card">
     <?php if ($message): ?>
-        <p style="margin-bottom:10px;"><?php echo $message; ?></p>
+        <p><?php echo $message; ?></p>
     <?php endif; ?>
 
     <form method="POST">
-        <div class="form-row">
-            <label>Username</label>
-            <input type="text" name="username" required>
-        </div>
+        <?= Csrf::field(); ?>
 
-        <div class="form-row">
-            <label>Role</label>
-            <select name="role" required>
-                <option value="admin">Admin</option>
-                <option value="coach">Coach</option>
-                <option value="student">Student</option>
-            </select>
-        </div>
+        <input name="username" placeholder="Username (email recommended)" required>
 
-        <div class="form-row">
-            <label>Link to Coach</label>
-            <select name="coach_id">
-                <option value="">-- None --</option>
-                <?php while ($c = $coaches->fetch_assoc()): ?>
-                    <option value="<?php echo $c['id']; ?>">
-                        <?php echo htmlspecialchars($c['name'] . " (" . $c['coach_code'] . ")"); ?>
-                    </option>
-                <?php endwhile; ?>
-            </select>
-        </div>
+        <select name="role">
+            <option value="admin">Admin</option>
+            <option value="coach">Coach</option>
+            <option value="student">Student</option>
+        </select>
 
-        <div class="form-row">
-            <label>Link to Student</label>
-            <select name="student_id">
-                <option value="">-- None --</option>
-                <?php while ($s = $students->fetch_assoc()): ?>
-                    <option value="<?php echo $s['id']; ?>">
-                        <?php
-                        $full = trim($s['first_name'] . " " . $s['last_name']);
-                        echo htmlspecialchars($full . " (" . $s['admission_no'] . ")");
-                        ?>
-                    </option>
-                <?php endwhile; ?>
-            </select>
-        </div>
+        <select name="coach_id">
+            <option value="">-- Link Coach (optional) --</option>
+            <?php if ($coaches): while ($c = $coaches->fetch_assoc()): ?>
+                <option value="<?php echo (int)$c['id']; ?>">
+                    <?php echo htmlspecialchars($c['name']); ?>
+                </option>
+            <?php endwhile; endif; ?>
+        </select>
 
-        <div class="form-row">
-            <label>Status</label>
-            <select name="status">
-                <option value="active">active</option>
-                <option value="disabled">disabled</option>
-            </select>
-        </div>
+        <select name="student_id">
+            <option value="">-- Link Student (optional) --</option>
+            <?php if ($students): while ($s = $students->fetch_assoc()): ?>
+                <option value="<?php echo (int)$s['id']; ?>">
+                    <?php echo htmlspecialchars($s['first_name'].' '.$s['last_name']); ?>
+                </option>
+            <?php endwhile; endif; ?>
+        </select>
 
-        <button type="submit" class="button-primary">Create User</button>
+        <select name="status">
+            <option value="active">active</option>
+            <option value="disabled">disabled</option>
+        </select>
+
+        <button class="button-primary">Create User</button>
     </form>
-
-    <p style="margin-top:10px; font-size:12px;">
-        User will be forced to change password at first login.
-    </p>
 </div>
-
-<p style="margin-top:10px;">
-    <a class="text-link" href="users.php">⬅ Back to Users</a>
-</p>
 
 <?php include "includes/footer.php"; ?>

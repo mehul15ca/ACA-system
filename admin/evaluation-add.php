@@ -9,12 +9,26 @@ if (!in_array($role, ['admin','superadmin','coach'])) {
     exit;
 }
 
+csrfInit();
+
 $message = "";
 $success = "";
 
-$students_res = $conn->query("SELECT id, admission_no, first_name, last_name FROM students WHERE status='active' ORDER BY first_name ASC");
-$coaches_res  = $conn->query("SELECT id, name FROM coaches WHERE status='active' ORDER BY name ASC");
+// Dropdown data
+$students_res = $conn->query("
+    SELECT id, admission_no, first_name, last_name
+    FROM students
+    WHERE status='active'
+    ORDER BY first_name ASC
+");
+$coaches_res  = $conn->query("
+    SELECT id, name
+    FROM coaches
+    WHERE status='active'
+    ORDER BY name ASC
+");
 
+// Default coach if logged in as coach
 $defaultCoachId = "";
 if ($role === 'coach') {
     if (session_status() === PHP_SESSION_NONE) session_start();
@@ -24,42 +38,50 @@ if ($role === 'coach') {
         $stmt->bind_param("i", $userId);
         $stmt->execute();
         $row = $stmt->get_result()->fetch_assoc();
-        if ($row && $row['coach_id']) {
+        if ($row && !empty($row['coach_id'])) {
             $defaultCoachId = intval($row['coach_id']);
         }
     }
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $student_id = intval($_POST['student_id']);
-    $coach_id   = intval($_POST['coach_id']);
-    $eval_time  = $_POST['eval_time'] !== "" ? $_POST['eval_time'] : date('Y-m-d H:i:s');
-    $status     = $_POST['status'];
+    verifyCsrf();
 
-    $batting    = $_POST['batting_rating']   !== "" ? intval($_POST['batting_rating'])   : null;
-    $bowling    = $_POST['bowling_rating']   !== "" ? intval($_POST['bowling_rating'])   : null;
-    $fielding   = $_POST['fielding_rating']  !== "" ? intval($_POST['fielding_rating'])  : null;
-    $fitness    = $_POST['fitness_rating']   !== "" ? intval($_POST['fitness_rating'])   : null;
-    $discipline = $_POST['discipline_rating']!== "" ? intval($_POST['discipline_rating']): null;
-    $attitude   = $_POST['attitude_rating']  !== "" ? intval($_POST['attitude_rating'])  : null;
-    $technique  = $_POST['technique_rating'] !== "" ? intval($_POST['technique_rating']) : null;
+    $student_id = intval($_POST['student_id'] ?? 0);
+    $coach_id   = intval($_POST['coach_id'] ?? 0);
 
-    $notes      = trim($_POST['notes']);
+    // datetime-local comes as YYYY-MM-DDTHH:MM -> store as YYYY-MM-DD HH:MM:SS
+    $eval_time_in = trim($_POST['eval_time'] ?? '');
+    if ($eval_time_in !== '') {
+        $eval_time = str_replace('T', ' ', $eval_time_in) . ":00";
+    } else {
+        $eval_time = date('Y-m-d H:i:s');
+    }
+
+    $status     = $_POST['status'] ?? 'draft';
+
+    $batting    = ($_POST['batting_rating']   ?? '') !== "" ? intval($_POST['batting_rating'])   : null;
+    $bowling    = ($_POST['bowling_rating']   ?? '') !== "" ? intval($_POST['bowling_rating'])   : null;
+    $fielding   = ($_POST['fielding_rating']  ?? '') !== "" ? intval($_POST['fielding_rating'])  : null;
+    $fitness    = ($_POST['fitness_rating']   ?? '') !== "" ? intval($_POST['fitness_rating'])   : null;
+    $discipline = ($_POST['discipline_rating']?? '') !== "" ? intval($_POST['discipline_rating']): null;
+    $attitude   = ($_POST['attitude_rating']  ?? '') !== "" ? intval($_POST['attitude_rating'])  : null;
+    $technique  = ($_POST['technique_rating'] ?? '') !== "" ? intval($_POST['technique_rating']) : null;
+
+    $notes      = trim($_POST['notes'] ?? '');
 
     if ($student_id <= 0 || $coach_id <= 0) {
         $message = "Student and coach are required.";
-    } elseif (!in_array($status, ['draft','final'])) {
+    } elseif (!in_array($status, ['draft','final'], true)) {
         $message = "Invalid status.";
     } else {
-        // calculate overall score as average of non-null numeric ratings
+        // overall average of provided ratings
         $vals = [];
         foreach ([$batting, $bowling, $fielding, $fitness, $discipline, $attitude, $technique] as $v) {
             if ($v !== null) $vals[] = $v;
         }
         $overall = null;
-        if (count($vals) > 0) {
-            $overall = array_sum($vals) / count($vals);
-        }
+        if (count($vals) > 0) $overall = array_sum($vals) / count($vals);
 
         $sql = "
             INSERT INTO player_evaluation
@@ -70,26 +92,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ";
         $stmt = $conn->prepare($sql);
-        $stmt->bind_param(
-            "siiiiiiiii dss".replace(" ", ""),
-            $eval_time,
-            $student_id,
-            $coach_id,
-            $batting,
-            $bowling,
-            $fielding,
-            $fitness,
-            $discipline,
-            $attitude,
-            $technique,
-            $overall,
-            $notes,
-            $status
-        );
-        if ($stmt->execute()) {
-            $success = "Evaluation saved.";
+        if (!$stmt) {
+            $message = "Prepare failed: " . $conn->error;
         } else {
-            $message = "Database error: " . $conn->error;
+            // s i i i i i i i i i d s s
+            $stmt->bind_param(
+                "siiiiiiiii dss",
+                $eval_time,
+                $student_id,
+                $coach_id,
+                $batting,
+                $bowling,
+                $fielding,
+                $fitness,
+                $discipline,
+                $attitude,
+                $technique,
+                $overall,
+                $notes,
+                $status
+            );
+
+            if ($stmt->execute()) {
+                $success = "Evaluation saved.";
+            } else {
+                $message = "Database error: " . $stmt->error;
+            }
         }
     }
 }
@@ -104,6 +132,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <?php if ($success): ?><div class="alert-success"><?php echo htmlspecialchars($success); ?></div><?php endif; ?>
 
     <form method="POST">
+        <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(csrfToken()); ?>">
+
         <div class="form-grid-2">
             <div class="form-group">
                 <label>Student</label>
@@ -111,7 +141,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <option value="">-- Select Student --</option>
                     <?php if ($students_res): ?>
                         <?php while ($s = $students_res->fetch_assoc()): ?>
-                            <option value="<?php echo $s['id']; ?>">
+                            <option value="<?php echo (int)$s['id']; ?>">
                                 <?php echo htmlspecialchars($s['admission_no'] . " - " . $s['first_name'] . " " . $s['last_name']); ?>
                             </option>
                         <?php endwhile; ?>
@@ -124,7 +154,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <option value="">-- Select Coach --</option>
                     <?php if ($coaches_res): ?>
                         <?php while ($c = $coaches_res->fetch_assoc()): ?>
-                            <option value="<?php echo $c['id']; ?>"
+                            <option value="<?php echo (int)$c['id']; ?>"
                                 <?php if ($defaultCoachId && $defaultCoachId == $c['id']) echo 'selected'; ?>>
                                 <?php echo htmlspecialchars($c['name']); ?>
                             </option>
@@ -136,8 +166,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         <div class="form-group">
             <label>Evaluation Time</label>
-            <input type="datetime-local" name="eval_time"
-                   value="<?php echo htmlspecialchars(date('Y-m-d\TH:i')); ?>">
+            <input type="datetime-local" name="eval_time" value="<?php echo htmlspecialchars(date('Y-m-d\TH:i')); ?>">
         </div>
 
         <div class="form-grid-2">

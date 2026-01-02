@@ -1,15 +1,16 @@
 <?php
-include "../config.php";
-checkLogin();
+require_once __DIR__ . '/_bootstrap.php';
+
+AdminGuard::requirePermission(Permissions::ATTENDANCE_VIEW);
 ?>
+
 <?php include "includes/header.php"; ?>
 <?php include "includes/sidebar.php"; ?>
 
 <h1>Attendance</h1>
 
 <div class="table-card">
-    <p>This is a placeholder page for the <strong>Attendance</strong> module.</p>
-    <p>It is loading correctly and ready for backend logic to be added later.</p>
+  <p>This module is ready. Detailed logic will be added here.</p>
 </div>
 
 <?php include "includes/footer.php"; ?>

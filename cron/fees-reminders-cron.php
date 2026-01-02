@@ -1,4 +1,9 @@
 <?php
+if (php_sapi_name() !== 'cli') {
+    http_response_code(403);
+    exit;
+}
+
 require __DIR__ . '/../includes/cron_guard.php';
 // Fees reminders cron – with parent_email CC support
 include "../config.php";

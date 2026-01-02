@@ -1,4 +1,9 @@
 <?php
+if (php_sapi_name() !== 'cli') {
+    http_response_code(403);
+    exit;
+}
+
 if (date('w') != 0) exit; // only Sunday
 
 require_once "../config.php";
