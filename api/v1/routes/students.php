@@ -1,7 +1,12 @@
 <?php
-declare(strict_types=1);
+use ACA\Api\Core\Auth;
+use ACA\Api\Core\Response;
 
-use ACA\Api\Controllers\StudentController;
+$router->get('/students', function () {
+    Auth::requirePermission('manage_students');
 
-/** @var ACA\Api\Core\Router $router */
-$router->get('/students', [StudentController::class, 'index']);
+    // existing logic here
+    Response::ok([
+        'items' => []
+    ], 'Students list');
+});

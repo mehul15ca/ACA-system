@@ -6,31 +6,33 @@ namespace ACA\Api\Core;
 final class Auth
 {
     public static function user(): array
-{
-    $authHeader = null;
+    {
+        $header = $_SERVER['HTTP_AUTHORIZATION'] ?? '';
 
-    // 1) Standard PHP env
-    if (isset($_SERVER['HTTP_AUTHORIZATION'])) {
-        $authHeader = $_SERVER['HTTP_AUTHORIZATION'];
-    }
-    // 2) Apache-specific
-    elseif (function_exists('apache_request_headers')) {
-        $headers = apache_request_headers();
-        if (isset($headers['Authorization'])) {
-            $authHeader = $headers['Authorization'];
+        if (!preg_match('/Bearer\s+(.+)/i', $header, $m)) {
+            Response::error('Missing token', 401, 'AUTH_TOKEN_MISSING');
         }
+
+        $payload = JWT::decode($m[1]);
+
+        if (!$payload) {
+            Response::error('Invalid or expired token', 401, 'AUTH_TOKEN_INVALID');
+        }
+
+        return $payload;
     }
 
-    if (!$authHeader || !preg_match('/Bearer\s+(.+)/i', $authHeader, $matches)) {
-        Response::error('Missing token', 401, 'AUTH_TOKEN_MISSING');
+    public static function requirePermission(string $permission): array
+    {
+        $user = self::user();
+
+        if (
+            $user['role'] !== 'superadmin' &&
+            !in_array($permission, $user['permissions'] ?? [], true)
+        ) {
+            Response::error('Permission denied', 403, 'PERMISSION_DENIED');
+        }
+
+        return $user;
     }
-
-    $payload = JWT::decode($matches[1]);
-    if (!$payload) {
-        Response::error('Invalid or expired token', 401, 'AUTH_TOKEN_INVALID');
-    }
-
-    return $payload;
-}
-
 }
