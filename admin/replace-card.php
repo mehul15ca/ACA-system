@@ -1,40 +1,51 @@
 <?php
-include "../config.php";
-checkLogin();
+// admin/replace-card.php  (FIXED: CSRF + bind_param types + safe transaction)
+require_once __DIR__ . '/_bootstrap.php';
 
-$role = currentUserRole();
-if (!in_array($role, ['admin','superadmin'])) {
-    http_response_code(403);
-    echo "Access denied.";
-    exit;
+AdminGuard::requirePermission(Permissions::CARDS_MANAGE);
+
+$id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
+if ($id <= 0) {
+    http_response_code(400);
+    exit('Invalid card ID.');
 }
 
-$id = isset($_GET['id']) ? intval($_GET['id']) : 0;
-if ($id <= 0) die("Invalid card ID.");
-
 // Load old card
-$stmt = $conn->prepare("SELECT * FROM cards WHERE id = ?");
+$stmt = $conn->prepare("SELECT * FROM cards WHERE id=?");
 $stmt->bind_param("i", $id);
 $stmt->execute();
-$res = $stmt->get_result();
-$old = $res->fetch_assoc();
-if (!$old) die("Card not found.");
+$old = $stmt->get_result()->fetch_assoc();
+if (!$old) {
+    http_response_code(404);
+    exit('Card not found.');
+}
 
 $message = "";
 $success = "";
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $new_card_number = trim($_POST['card_number']);
-    $new_uid         = trim($_POST['uid']);
-    $issued_on       = $_POST['issued_on'] !== "" ? $_POST['issued_on'] : null;
+    Csrf::validateRequest();
+
+    $new_card_number = trim((string)($_POST['card_number'] ?? ''));
+    $new_uid         = trim((string)($_POST['uid'] ?? ''));
+    $issued_on_raw   = trim((string)($_POST['issued_on'] ?? ''));
+    $issued_on       = ($issued_on_raw !== '') ? $issued_on_raw : null;
 
     if ($new_card_number === "" || $new_uid === "") {
         $message = "New card number and UID are required.";
     } else {
-        // Begin replacement: mark old inactive, create new active
         $conn->begin_transaction();
         try {
-            $stmt1 = $conn->prepare("UPDATE cards SET status = 'inactive' WHERE id = ?");
+            // Optional: prevent UID duplicates
+            $chk = $conn->prepare("SELECT id FROM cards WHERE uid=? LIMIT 1");
+            $chk->bind_param("s", $new_uid);
+            $chk->execute();
+            $dup = $chk->get_result()->fetch_assoc();
+            if ($dup) {
+                throw new RuntimeException("UID already exists on another card.");
+            }
+
+            $stmt1 = $conn->prepare("UPDATE cards SET status='inactive' WHERE id=?");
             $stmt1->bind_param("i", $id);
             $stmt1->execute();
 
@@ -43,8 +54,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 VALUES (?, ?, ?, ?, ?, ?, 'active')
             ";
             $stmt2 = $conn->prepare($sql2);
+            // card_number(s), uid(s), card_type(s), assigned_to_type(s), assigned_to_id(i), issued_on(s|null)
             $stmt2->bind_param(
-                "ssssiss",
+                "ssssis",
                 $new_card_number,
                 $new_uid,
                 $old['card_type'],
@@ -56,7 +68,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             $conn->commit();
             $success = "Card replaced successfully. Old card set to inactive, new card created & active.";
-        } catch (Exception $e) {
+        } catch (Throwable $e) {
             $conn->rollback();
             $message = "Error during replacement: " . $e->getMessage();
         }
@@ -75,7 +87,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <tr><th>UID</th><td><?php echo htmlspecialchars($old['uid']); ?></td></tr>
         <tr><th>Status</th><td><?php echo htmlspecialchars($old['status']); ?></td></tr>
         <tr><th>Assigned To Type</th><td><?php echo htmlspecialchars($old['assigned_to_type']); ?></td></tr>
-        <tr><th>Assigned To ID</th><td><?php echo htmlspecialchars($old['assigned_to_id']); ?></td></tr>
+        <tr><th>Assigned To ID</th><td><?php echo htmlspecialchars((string)$old['assigned_to_id']); ?></td></tr>
     </table>
 
     <hr style="margin:14px 0; border:none; border-top:1px solid #1f2933;">
@@ -89,6 +101,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     <h2>New Card Details</h2>
     <form method="POST">
+        <?php echo Csrf::field(); ?>
         <div class="form-grid-2">
             <div class="form-group">
                 <label>New Card Number</label>

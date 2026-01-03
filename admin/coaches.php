@@ -25,6 +25,14 @@ $res = $conn->query("SELECT * FROM coaches ORDER BY created_at DESC");
 <td><?php echo htmlspecialchars($c['status']); ?></td>
 <td>
 <a href="edit-coach.php?id=<?php echo (int)$c['id']; ?>" class="text-link">Edit</a>
+
+<?php if ($c['status']==='active'): ?>
+ | <form method="POST" action="delete-coach.php" style="display:inline">
+    <?php echo Csrf::field(); ?>
+    <input type="hidden" name="id" value="<?php echo (int)$c['id']; ?>">
+    <button class="text-link" onclick="return confirm('Disable coach?')">Disable</button>
+   </form>
+<?php endif; ?>
 </td>
 </tr>
 <?php endwhile; ?>

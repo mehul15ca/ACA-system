@@ -28,11 +28,22 @@ $res = $conn->query("SELECT * FROM batches ORDER BY created_at DESC");
         <td><?php echo htmlspecialchars($b['name']); ?></td>
         <td><?php echo htmlspecialchars($b['code']); ?></td>
         <td><?php echo htmlspecialchars($b['age_group']); ?></td>
-        <td><span class="badge <?php echo $b['status']==='active'?'green':''; ?>">
-          <?php echo htmlspecialchars($b['status']); ?></span></td>
+        <td>
+          <span class="badge <?php echo $b['status']==='active'?'green':''; ?>">
+            <?php echo htmlspecialchars($b['status']); ?>
+          </span>
+        </td>
         <td>
           <a href="view-batch.php?id=<?php echo (int)$b['id']; ?>" class="text-link">View</a> |
           <a href="edit-batch.php?id=<?php echo (int)$b['id']; ?>" class="text-link">Edit</a>
+
+          <?php if ($b['status'] === 'active'): ?>
+            | <form method="POST" action="delete-batch.php" style="display:inline">
+                <?php echo Csrf::field(); ?>
+                <input type="hidden" name="id" value="<?php echo (int)$b['id']; ?>">
+                <button class="text-link" onclick="return confirm('Disable this batch?')">Disable</button>
+              </form>
+          <?php endif; ?>
         </td>
       </tr>
       <?php endwhile; ?>

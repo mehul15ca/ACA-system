@@ -1,4 +1,10 @@
+
 <?php
+if (PHP_SAPI !== 'cli') {
+    http_response_code(403);
+    exit('Forbidden');
+}
+
 require_once __DIR__ . '/_bootstrap.php'; // CLI-only guard + DB
 
 date_default_timezone_set('America/Toronto');
