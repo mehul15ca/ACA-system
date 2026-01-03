@@ -1,12 +1,5 @@
 <?php
-include "../config.php";
-checkLogin();
-$role = currentUserRole();
-if (!in_array($role, ['admin','superadmin'])) {
-    http_response_code(403);
-    echo "Access denied.";
-    exit;
-}
+require_once __DIR__ . '/_bootstrap.php';
 
 $id = isset($_GET['id']) ? intval($_GET['id']) : 0;
 if ($id <= 0) die("Invalid order id.");
@@ -81,6 +74,8 @@ $resItems = $conn->query($sqlItems);
 
     <?php if ($role === 'superadmin'): ?>
         <form method="POST" style="margin-top:8px;">
+        <?php echo Csrf::field(); ?>
+
             <div class="form-grid-2">
                 <div class="form-group">
                     <label>Order Status</label>

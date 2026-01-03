@@ -1,13 +1,6 @@
 <?php
-include "../config.php";
+require_once __DIR__ . '/_bootstrap.php';
 include "fees-helpers.php";
-checkLogin();
-$role = currentUserRole();
-if (!in_array($role, ['admin','superadmin'])) {
-    http_response_code(403);
-    echo "Access denied.";
-    exit;
-}
 
 $message = "";
 $success = "";
@@ -59,6 +52,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <?php if ($success): ?><div class="alert-success"><?php echo $success; ?></div><?php endif; ?>
 
     <form method="POST">
+        <?php echo Csrf::field(); ?>
+
         <div class="form-grid-2">
             <div class="form-group">
                 <label>Student</label>

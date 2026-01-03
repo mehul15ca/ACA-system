@@ -1,13 +1,5 @@
 <?php
-include "../config.php";
-checkLogin();
-
-$role = currentUserRole();
-if (!in_array($role, ['admin','superadmin'])) {
-    http_response_code(403);
-    echo "Access denied.";
-    exit;
-}
+require_once __DIR__ . '/_bootstrap.php';
 
 $message = "";
 $success = "";
@@ -88,6 +80,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $message === "") {
     <?php if (!empty($success)): ?><div class="alert-success"><?php echo htmlspecialchars($success); ?></div><?php endif; ?>
 
     <form method="POST">
+        <?php echo Csrf::field(); ?>
+
         <div class="form-grid-2">
             <div class="form-group">
                 <label>Date</label>

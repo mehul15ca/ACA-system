@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/../includes/security/csrf.php';
 include "../config.php";
 checkLogin();
 
@@ -31,6 +32,7 @@ if ($role === 'coach') {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    Csrf::validateRequest();
     $student_id    = intval($_POST['student_id']);
     $coach_id      = intval($_POST['coach_id']);
     $incident_date = $_POST['incident_date'];
@@ -87,6 +89,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <?php if ($success): ?><div class="alert-success"><?php echo htmlspecialchars($success); ?></div><?php endif; ?>
 
     <form method="POST">
+        <?php echo Csrf::field(); ?>
+
         <div class="form-grid-2">
             <div class="form-group">
                 <label>Student</label>

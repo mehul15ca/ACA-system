@@ -1,6 +1,6 @@
 <?php
-include "../config.php";
-checkLogin();
+require_once __DIR__ . '/_bootstrap.php';
+
 if (!hasPermission('manage_students')) {
     http_response_code(403);
     echo "Access denied.";

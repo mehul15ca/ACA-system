@@ -1,12 +1,5 @@
 <?php
-include "../config.php";
-checkLogin();
-$role = currentUserRole();
-if (!in_array($role, ['admin','superadmin'])) {
-    http_response_code(403);
-    echo "Access denied.";
-    exit;
-}
+require_once __DIR__ . '/_bootstrap.php';
 
 $id = isset($_GET['id']) ? intval($_GET['id']) : 0;
 if ($id <= 0) die("Invalid plan ID.");
@@ -60,6 +53,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <?php if ($success): ?><div class="alert-success"><?php echo htmlspecialchars($success); ?></div><?php endif; ?>
 
     <form method="POST">
+        <?php echo Csrf::field(); ?>
+
         <div class="form-group">
             <label>Plan Name</label>
             <input type="text" name="name" value="<?php echo htmlspecialchars($plan['name']); ?>" required>

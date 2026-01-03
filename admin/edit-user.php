@@ -1,6 +1,6 @@
 <?php
-include "../config.php";
-checkLogin();
+require_once __DIR__ . '/_bootstrap.php';
+
 requireSuperadmin();
 
 if (!isset($_GET['id'])) {
@@ -61,6 +61,8 @@ $students = $conn->query("SELECT id, admission_no, first_name, last_name FROM st
     <?php endif; ?>
 
     <form method="POST">
+        <?php echo Csrf::field(); ?>
+
         <div class="form-row">
             <label>Username</label>
             <input type="text" name="username" value="<?php echo htmlspecialchars($user['username']); ?>" required>

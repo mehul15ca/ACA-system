@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/../includes/security/csrf.php';
 // login.php – universal login
 
 include "config.php";
@@ -29,6 +30,7 @@ $error = "";
 $username_prefill = $_COOKIE['aca_remember_username'] ?? "";
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    Csrf::validateRequest();
     $username = trim($_POST['username'] ?? '');
     $password = $_POST['password'] ?? '';
     $remember = !empty($_POST['remember_me']);
@@ -288,6 +290,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <?php endif; ?>
 
             <form method="POST" id="loginForm">
+        <?php echo Csrf::field(); ?>
+
                 <div class="field">
                     <label for="username">Username</label>
                     <input type="text"

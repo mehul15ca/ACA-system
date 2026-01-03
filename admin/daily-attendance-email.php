@@ -2,8 +2,7 @@
 require __DIR__ . '/../includes/cron_guard.php';
 // Daily email of PRESENT students grouped by batch.
 // Run this via cron or hit manually in browser.
-include "../config.php";
-
+require_once __DIR__ . '/_bootstrap.php';
 date_default_timezone_set('America/Toronto');
 
 $adminEmail = "mehul15.ca@gmail.com"; // Change if needed

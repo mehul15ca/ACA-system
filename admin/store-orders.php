@@ -1,6 +1,6 @@
 <?php
-include "../config.php";
-checkLogin();
+require_once __DIR__ . '/_bootstrap.php';
+
 if (!hasPermission('manage_store')) {
     http_response_code(403);
     echo "Access denied.";
@@ -8,13 +8,6 @@ if (!hasPermission('manage_store')) {
 }
 
 
-
-$role = currentUserRole();
-if (!in_array($role, ['admin','superadmin'])) {
-    http_response_code(403);
-    echo "Access denied.";
-    exit;
-}
 
 // List orders
 $sql = "

@@ -1,6 +1,5 @@
 <?php
-include "../config.php";
-checkLogin();
+require_once __DIR__ . '/_bootstrap.php';
 
 $user_id = $_SESSION['user_id'];
 $message = "";
@@ -52,6 +51,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <?php endif; ?>
 
     <form method="POST">
+        <?php echo Csrf::field(); ?>
+
         <div class="form-row">
             <label>New Password</label>
             <input type="password" name="new_password" required>

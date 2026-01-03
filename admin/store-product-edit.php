@@ -1,6 +1,6 @@
 <?php
-include "../config.php";
-checkLogin();
+require_once __DIR__ . '/_bootstrap.php';
+
 $role = currentUserRole();
 if ($role !== 'superadmin') {
     http_response_code(403);
@@ -112,6 +112,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <?php if ($success): ?><div class="alert-success"><?php echo htmlspecialchars($success); ?></div><?php endif; ?>
 
     <form method="POST">
+        <?php echo Csrf::field(); ?>
+
         <div class="form-group">
             <label>Name</label>
             <input type="text" name="name" value="<?php echo htmlspecialchars($product['name']); ?>" required>

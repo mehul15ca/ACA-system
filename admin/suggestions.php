@@ -1,13 +1,5 @@
 <?php
-include "../config.php";
-checkLogin();
-
-$role = currentUserRole();
-if (!in_array($role, ['admin','superadmin'])) {
-    http_response_code(403);
-    echo "Access denied.";
-    exit;
-}
+require_once __DIR__ . '/_bootstrap.php';
 
 $filter_student = isset($_GET['student']) ? trim($_GET['student']) : '';
 $filter_status  = isset($_GET['status']) ? trim($_GET['status']) : '';

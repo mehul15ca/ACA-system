@@ -1,6 +1,6 @@
 <?php
-include "../config.php";
-checkLogin();
+require_once __DIR__ . '/_bootstrap.php';
+
 requireSuperadmin();
 
 if (!isset($_GET['id'])) {
@@ -59,6 +59,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <?php endif; ?>
 
     <form method="POST">
+        <?php echo Csrf::field(); ?>
+
         <button type="submit" class="button-primary">Reset Password</button>
     </form>
 </div>

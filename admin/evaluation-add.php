@@ -45,6 +45,7 @@ if ($role === 'coach') {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    Csrf::validateRequest();
     verifyCsrf();
 
     $student_id = intval($_POST['student_id'] ?? 0);

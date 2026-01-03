@@ -1,6 +1,6 @@
 <?php
-include "../config.php";
-checkLogin();
+require_once __DIR__ . '/_bootstrap.php';
+
 ?>
 <?php include "includes/header.php"; ?>
 <?php include "includes/sidebar.php"; ?>

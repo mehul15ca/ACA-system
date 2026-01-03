@@ -8,8 +8,7 @@ require __DIR__ . '/../includes/cron_guard.php';
 // - And there is no existing invoice for this student with period_from = first day of THIS month
 //   (status not cancelled)
 // - Then create an invoice for the month (current month dates)
-
-include "../config.php";
+require_once __DIR__ . '/_bootstrap.php';
 include "fees-helpers.php";
 
 date_default_timezone_set('America/Toronto');

@@ -1,12 +1,5 @@
 <?php
-include "../config.php";
-checkLogin();
-$role = currentUserRole();
-if (!in_array($role, ['admin','superadmin'])) {
-    http_response_code(403);
-    echo "Access denied.";
-    exit;
-}
+require_once __DIR__ . '/_bootstrap.php';
 
 $mode = $_GET['mode'] ?? 'view'; // view, csv
 $from = $_GET['from'] ?? date('Y-m-01');

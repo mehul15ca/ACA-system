@@ -1,12 +1,5 @@
 <?php
-include "../config.php";
-checkLogin();
-$role = currentUserRole();
-if (!in_array($role, ['admin','superadmin'])) {
-    http_response_code(403);
-    echo "Access denied.";
-    exit;
-}
+require_once __DIR__ . '/_bootstrap.php';
 
 $coach_id = isset($_GET['coach_id']) ? intval($_GET['coach_id']) : 0;
 $month    = isset($_GET['month']) ? intval($_GET['month']) : intval(date('n'));

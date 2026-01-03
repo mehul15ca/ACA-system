@@ -1,12 +1,5 @@
 <?php
-include "../config.php";
-checkLogin();
-$role = currentUserRole();
-if (!in_array($role, ['admin','superadmin'])) {
-    http_response_code(403);
-    echo "Access denied.";
-    exit;
-}
+require_once __DIR__ . '/_bootstrap.php';
 
 // Month/year filter
 $year  = isset($_GET['year'])  && $_GET['year']  !== '' ? intval($_GET['year'])  : intval(date('Y'));
@@ -91,6 +84,8 @@ $summaryRes = $conn->query($sqlSummary);
         </div>
         <div style="margin-left:auto;">
             <form method="POST" style="display:inline;">
+        <?php echo Csrf::field(); ?>
+
                 <input type="hidden" name="action" value="generate">
                 <input type="hidden" name="month" value="<?php echo $month; ?>">
                 <input type="hidden" name="year" value="<?php echo $year; ?>">
@@ -138,6 +133,8 @@ $summaryRes = $conn->query($sqlSummary);
                         <?php if ($row['unpaid_amount'] > 0): ?>
                             |
                             <form method="POST" style="display:inline;" onsubmit="return confirm('Mark all unpaid as PAID for this coach and month?');">
+        <?php echo Csrf::field(); ?>
+
                                 <input type="hidden" name="action" value="mark_paid">
                                 <input type="hidden" name="coach_id" value="<?php echo $row['coach_id']; ?>">
                                 <input type="hidden" name="month" value="<?php echo $month; ?>">

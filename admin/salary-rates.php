@@ -1,12 +1,5 @@
 <?php
-include "../config.php";
-checkLogin();
-$role = currentUserRole();
-if (!in_array($role, ['admin','superadmin'])) {
-    http_response_code(403);
-    echo "Access denied.";
-    exit;
-}
+require_once __DIR__ . '/_bootstrap.php';
 
 $message = "";
 $success = "";
@@ -69,6 +62,8 @@ $rates_res = $conn->query("
 
     <h2 style="font-size:15px;margin-bottom:8px;">Add New Rate</h2>
     <form method="POST">
+        <?php echo Csrf::field(); ?>
+
         <input type="hidden" name="action" value="add">
         <div class="form-grid-3">
             <div class="form-group">

@@ -1,13 +1,6 @@
 <?php
-include "../config.php";
+require_once __DIR__ . '/_bootstrap.php';
 include "fees-helpers.php";
-checkLogin();
-$role = currentUserRole();
-if (!in_array($role, ['admin','superadmin'])) {
-    http_response_code(403);
-    echo "Access denied.";
-    exit;
-}
 
 $filter_status = isset($_GET['status']) ? $_GET['status'] : '';
 $filter_month  = isset($_GET['month']) && $_GET['month'] !== '' ? $_GET['month'] : date('Y-m');

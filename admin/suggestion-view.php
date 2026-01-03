@@ -1,13 +1,5 @@
 <?php
-include "../config.php";
-checkLogin();
-
-$role = currentUserRole();
-if (!in_array($role, ['admin','superadmin'])) {
-    http_response_code(403);
-    echo "Access denied.";
-    exit;
-}
+require_once __DIR__ . '/_bootstrap.php';
 
 $id = isset($_GET['id']) ? intval($_GET['id']) : 0;
 if ($id <= 0) die("Invalid suggestion ID.");
@@ -51,6 +43,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['toggle_status'])) {
 
     <div style="margin-top:8px;">
         <form method="POST" style="display:inline;">
+        <?php echo Csrf::field(); ?>
+
             <button type="submit" name="toggle_status" class="button-primary">
                 <?php echo $sg['status'] === 'open' ? 'Mark as closed' : 'Reopen'; ?>
             </button>

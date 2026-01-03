@@ -1,13 +1,5 @@
 <?php
-include "../config.php";
-checkLogin();
-
-$role = currentUserRole();
-if (!in_array($role, ['admin','superadmin'])) {
-    http_response_code(403);
-    echo "Access denied. Admin/Superadmin only.";
-    exit;
-}
+require_once __DIR__ . '/_bootstrap.php';
 
 if (!isset($_GET['id'])) {
     die("Schedule ID missing.");
@@ -129,6 +121,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <?php endif; ?>
 
     <form method="POST">
+        <?php echo Csrf::field(); ?>
+
 
         <div class="form-row">
             <label>Batch</label>
