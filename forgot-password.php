@@ -1,42 +1,62 @@
 <?php
-require "config.php";
+require_once __DIR__ . '/_bootstrap.php';
 
-use ACA\Core\Csrf;
-
-$info = '';
-$error = '';
+$errors = [];
+$success = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    Csrf::verify($_POST['csrf'] ?? null);
+    Csrf::validateRequest();
 
-    $username = trim($_POST['username'] ?? '');
-    $info = "If this account exists, a reset email has been sent.";
+    $_SESSION['pw_reset_last'] ??= 0;
+    if (time() - $_SESSION['pw_reset_last'] < 60) {
+        $errors[] = 'Please wait before requesting another reset.';
+    } else {
+        $_SESSION['pw_reset_last'] = time();
 
-    if ($username !== '') {
-        $stmt = $conn->prepare("SELECT id FROM users WHERE username=? LIMIT 1");
-        $stmt->bind_param("s", $username);
-        $stmt->execute();
-        $res = $stmt->get_result();
-
-        if ($user = $res->fetch_assoc()) {
-            $token = bin2hex(random_bytes(32));
-            $hash  = hash('sha256', $token);
-            $exp   = (new DateTime('+15 minutes'))->format('Y-m-d H:i:s');
-
-            $stmt = $conn->prepare("
-                INSERT INTO password_resets (user_id, token, expires_at, used)
-                VALUES (?, ?, ?, 0)
-            ");
-            $stmt->bind_param("iss", $user['id'], $hash, $exp);
+        $email = trim($_POST['email'] ?? '');
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            $errors[] = 'Invalid email.';
+        } else {
+            $stmt = $conn->prepare("SELECT id FROM users WHERE email = ? AND status='active'");
+            $stmt->bind_param("s", $email);
             $stmt->execute();
+            $res = $stmt->get_result();
+            if ($u = $res->fetch_assoc()) {
+                $token = bin2hex(random_bytes(32));
+                $tokenHash = hash('sha256', $token);
+                $expires = date('Y-m-d H:i:s', time() + 3600);
 
-            // SEND EMAIL HERE ONLY
+                $up = $conn->prepare("
+                    UPDATE users
+                    SET reset_token = ?, reset_expires = ?
+                    WHERE id = ?
+                ");
+                $up->bind_param("ssi", $tokenHash, $expires, $u['id']);
+                $up->execute();
+
+                // SEND EMAIL HERE (no dev link output)
+                // reset URL example:
+                // https://yourdomain/reset-password.php?token=$token
+
+                $success = 'If the email exists, a reset link has been sent.';
+            } else {
+                $success = 'If the email exists, a reset link has been sent.';
+            }
         }
     }
 }
 ?>
-<form method="post">
-    <input type="hidden" name="csrf" value="<?= htmlspecialchars(Csrf::token()) ?>">
-    <input name="username">
-    <button>Reset</button>
+
+<form method="POST">
+    <?= Csrf::field(); ?>
+    <input type="email" name="email" placeholder="Your email" required>
+    <button type="submit">Reset Password</button>
 </form>
+
+<?php if ($errors): foreach ($errors as $e): ?>
+<p><?= htmlspecialchars($e) ?></p>
+<?php endforeach; endif; ?>
+
+<?php if ($success): ?>
+<p><?= htmlspecialchars($success) ?></p>
+<?php endif; ?>
